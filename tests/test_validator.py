@@ -14,18 +14,13 @@ class TestValidateCounts:
         report = validate_counts(header, schemas, actions, slices)
         assert report.all_pass
 
-    def test_process_table_expected_diff(self):
+    def test_table_count_warning(self):
         header = HeaderCounts(tables=10, columns=100)
         schemas = {f"Table{i}": [{"name": "col"}] * 10 for i in range(7)}
-        process_tables = [f"Process{i}" for i in range(3)]
 
-        report = validate_counts(
-            header, schemas, [], [],
-            process_tables=process_tables,
-        )
-        # 7 parsed + 3 process = 10 expected
+        report = validate_counts(header, schemas, [], [])
         table_result = next(r for r in report.results if r.field == "Tables")
-        assert table_result.status == "expected_diff"
+        assert table_result.status == "warning"  # 3 missing, within tolerance
 
     def test_column_mismatch_warning(self):
         header = HeaderCounts(tables=1, columns=100)
@@ -59,7 +54,15 @@ class TestValidateCounts:
     def test_action_warning(self):
         header = HeaderCounts(tables=1, columns=1, actions=100)
         schemas = {"T1": [{"name": "c"}]}
-        actions = [{"name": f"a{i}"} for i in range(70)]
+        actions = [{"name": f"a{i}"} for i in range(95)]  # 5% diff = warning
         report = validate_counts(header, schemas, actions, [])
         action_result = next(r for r in report.results if r.field == "Actions")
         assert action_result.status == "warning"
+
+    def test_action_error(self):
+        header = HeaderCounts(tables=1, columns=1, actions=100)
+        schemas = {"T1": [{"name": "c"}]}
+        actions = [{"name": f"a{i}"} for i in range(70)]  # 30% diff = error
+        report = validate_counts(header, schemas, actions, [])
+        action_result = next(r for r in report.results if r.field == "Actions")
+        assert action_result.status == "error"

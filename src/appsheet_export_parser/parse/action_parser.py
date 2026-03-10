@@ -31,25 +31,19 @@ def parse_actions(
     start = sections.behavior.start_line
     end = sections.behavior.end_line
 
-    # Find all action markers within the behavior section
+    # Find all action markers within the behavior section.
+    # Each "Action name X" line is a separate action instance — the same
+    # action name appears once per table it's attached to. We keep all of them.
     action_starts: list[tuple[int, str]] = []
     for i in range(start, end):
         m = re.match(r"^Action name (.+)$", lines[i].strip())
         if m:
             action_starts.append((i, m.group(1).strip()))
 
-    # Deduplicate (AppSheet repeats "Action name X" then "Action name\n\nX")
-    seen: dict[str, int] = {}
-    for start_i, name in action_starts:
-        if name not in seen:
-            seen[name] = start_i
-
-    # Parse each action block
-    sorted_actions = sorted(seen.items(), key=lambda x: x[1])
-
-    for idx, (name, start_i) in enumerate(sorted_actions):
-        if idx + 1 < len(sorted_actions):
-            end_i = sorted_actions[idx + 1][1]
+    # Parse each action block (no deduplication — cross-table instances are distinct)
+    for idx, (start_i, name) in enumerate(action_starts):
+        if idx + 1 < len(action_starts):
+            end_i = action_starts[idx + 1][0]
         else:
             end_i = min(start_i + 200, end)
 

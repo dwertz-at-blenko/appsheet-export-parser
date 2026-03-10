@@ -35,7 +35,7 @@ class TestBerpLiveParse:
 
     def test_table_count(self, parsed):
         schemas = parsed["schemas"]
-        assert len(schemas) == 45
+        assert len(schemas) == 55
 
     def test_column_count_exact(self, parsed):
         """Column count must be an EXACT MATCH with header."""
@@ -55,10 +55,9 @@ class TestBerpLiveParse:
         assert len(parsed["slices"]) == 36
 
     def test_action_count(self, parsed):
-        """Actions will be less than header due to cross-table dedup."""
+        """Actions include cross-table instances — should match header exactly."""
         actions = parsed["actions"]
-        assert len(actions) == 231
-        assert len(actions) > 200  # reasonable lower bound
+        assert len(actions) == 293
 
     def test_relationships_extracted(self, parsed):
         rels = parsed["relationships"]
@@ -70,8 +69,8 @@ class TestBerpLiveParse:
 
     def test_core_process_classification(self, parsed):
         summary = parsed["metadata"]["summary"]
-        # Auto-classifier puts Home/Buttons in 'skip', so core + process < 45
-        assert summary["core_tables"] + summary["process_tables"] <= 45
+        # Auto-classifier puts Home/Buttons in 'skip', so core + process < 55
+        assert summary["core_tables"] + summary["process_tables"] <= 55
         assert summary["core_tables"] > 15  # Expect at least 15 core tables
         assert summary["process_tables"] > 20  # Expect at least 20 process tables
 

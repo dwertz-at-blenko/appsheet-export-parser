@@ -104,10 +104,7 @@ def parse_pdf(
 
     # Validate
     _log("Validating against header counts...")
-    validation = validate_counts(
-        header_counts, schemas, actions, slices,
-        process_tables=classification.process,
-    )
+    validation = validate_counts(header_counts, schemas, actions, slices)
     _log(validation.format_report())
 
     # Stage 4: Generate

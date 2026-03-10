@@ -68,7 +68,6 @@ def validate_counts(
     schemas: dict[str, list[dict[str, Any]]],
     actions: list[dict[str, Any]],
     slices: list[dict[str, Any]],
-    process_tables: list[str] | None = None,
 ) -> ValidationReport:
     """Compare parsed extraction counts against official header counts.
 
@@ -77,8 +76,6 @@ def validate_counts(
         schemas: Parsed schemas (table_name → columns).
         actions: Parsed actions list.
         slices: Parsed slices list.
-        process_tables: Optional list of process table names (explains
-            the difference between header table count and parsed count).
     """
     report = ValidationReport()
 
@@ -87,15 +84,9 @@ def validate_counts(
 
     # Tables
     parsed_tables = len(schemas)
-    process_count = len(process_tables) if process_tables else 0
     if parsed_tables == header.tables:
         report.results.append(ValidationResult(
             "Tables", header.tables, parsed_tables, "match",
-        ))
-    elif process_count > 0 and parsed_tables + process_count >= header.tables:
-        report.results.append(ValidationResult(
-            "Tables", header.tables, parsed_tables, "expected_diff",
-            f"{header.tables - parsed_tables} are Process/Output tables",
         ))
     else:
         diff = header.tables - parsed_tables
@@ -128,11 +119,10 @@ def validate_counts(
         ))
     else:
         diff = header.actions - parsed_actions
-        note = f"Delta: {diff}"
-        if diff > 0 and diff > 30:
-            note += " (cross-table duplicates may need dedup)"
+        status = "warning" if abs(diff) / max(header.actions, 1) < 0.1 else "error"
         report.results.append(ValidationResult(
-            "Actions", header.actions, parsed_actions, "warning", note,
+            "Actions", header.actions, parsed_actions, status,
+            f"Delta: {diff}",
         ))
 
     # Slices

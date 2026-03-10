@@ -59,6 +59,11 @@ def find_sections(lines: list[str]) -> DocumentSections:
     """Scan lines to find all major section boundaries.
 
     Uses the document's own structure markers rather than hardcoded positions.
+    Handles three schema name formats from PDF extraction:
+
+    1. Inline:  Schema Name Employee_Schema
+    2. Bare:    Schema Name (alone), then Employee_Schema on next line
+    3. Split:   Schema Name Process for Something (partial), then Table_Schema on next line
     """
     sections = DocumentSections()
     total = len(lines)
@@ -66,23 +71,41 @@ def find_sections(lines: list[str]) -> DocumentSections:
     # Track positions of major section markers
     marker_positions: list[tuple[int, str]] = []
 
-    for i, line in enumerate(lines):
-        s = line.strip()
+    # Track seen schema names to deduplicate (same schema appears in multiple formats)
+    seen_schemas: set[str] = set()
 
-        # Schema block markers: "Schema Name XXX_Schema"
+    i = 0
+    while i < total:
+        s = lines[i].strip()
+
+        # Format 1: Inline — "Schema Name XXX_Schema" all on one line
         m = re.match(r"^Schema Name (\S.+_Schema)$", s)
         if m:
-            sections.schema_blocks.append((i, m.group(1)))
+            schema_name = m.group(1)
+            if schema_name not in seen_schemas:
+                seen_schemas.add(schema_name)
+                sections.schema_blocks.append((i, schema_name))
+            i += 1
+            continue
+
+        # Format 2 & 3: Bare or partial "Schema Name" line
+        if s == "Schema Name" or (
+            s.startswith("Schema Name ") and not s.endswith("_Schema")
+        ):
+            partial = s[len("Schema Name"):].strip()  # empty for bare, partial for split
+            schema_name = _resolve_schema_name(lines, i, partial, total)
+            if schema_name and schema_name not in seen_schemas:
+                seen_schemas.add(schema_name)
+                sections.schema_blocks.append((i, schema_name))
+            i += 1
             continue
 
         # Major section markers (only match standalone section headers)
-        # These are typically on their own line, sometimes after schemas
         if s in _SECTION_MARKERS:
-            # Verify it's a real section header, not content
-            # Section headers are usually preceded by blank lines
-            # and not indented
-            if not line.startswith(" ") and not line.startswith("\t"):
+            if not lines[i].startswith(" ") and not lines[i].startswith("\t"):
                 marker_positions.append((i, _SECTION_MARKERS[s]))
+
+        i += 1
 
     # Build schema section from first/last schema block
     if sections.schema_blocks:
@@ -122,3 +145,44 @@ def find_sections(lines: list[str]) -> DocumentSections:
             sections.schemas.end_line = total
 
     return sections
+
+
+def _resolve_schema_name(
+    lines: list[str], start: int, partial: str, total: int,
+) -> str | None:
+    """Resolve a schema name from bare or split format.
+
+    For bare format ("Schema Name" alone), the name is on the next non-blank line.
+    For split format ("Schema Name Process for Something"), the rest is on the next line.
+
+    Returns the full schema name (e.g., "Employee_Schema") or None if not found.
+    """
+    for j in range(start + 1, min(start + 5, total)):
+        val = lines[j].strip()
+        if not val:
+            continue
+
+        # Skip if we hit another marker
+        if val in _SECTION_MARKERS or val == "Schema Name":
+            break
+
+        # Skip false positives (field names that appear right after Schema Name)
+        if val in ("Visible?", "Column name", "Type", "Description"):
+            break
+
+        if partial:
+            # Split format: combine partial + continuation
+            full = f"{partial} {val}"
+            if full.endswith("_Schema"):
+                return full
+            # Check if the continuation itself ends with _Schema
+            if val.endswith("_Schema"):
+                return f"{partial} {val}"
+        else:
+            # Bare format: the value IS the schema name
+            if val.endswith("_Schema"):
+                return val
+
+        break
+
+    return None
