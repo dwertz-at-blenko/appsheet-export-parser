@@ -18,6 +18,7 @@ The parser uses KNOWN_FIELDS to detect where values end and new fields begin.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 # Known field names that appear in AppSheet column definitions.
@@ -100,21 +101,41 @@ def parse_type_qualifier(raw_parts: list[str]) -> dict[str, Any] | None:
     """Parse a Type Qualifier JSON blob from collected line parts.
 
     The JSON may be broken across PDF page boundaries.
-    Attempts parsing as-is first, then tries basic JSON repair.
+    Attempts parsing as-is first, then tries basic JSON repair,
+    then falls back to regex extraction of key fields.
 
-    Returns parsed dict or None if parsing fails.
+    Returns parsed dict or None if parsing fails completely.
     """
     tq_str = "".join(raw_parts)
     try:
         return json.loads(tq_str)
     except (json.JSONDecodeError, TypeError):
         # Try repair
-        from .json_repair import repair_json
+        from .json_repair import repair_json, extract_ref_table_from_broken_json
         repaired = repair_json(tq_str)
         try:
             return json.loads(repaired)
         except (json.JSONDecodeError, TypeError):
-            return None
+            # Last resort: extract what we can via regex
+            result: dict[str, Any] = {}
+            ref_table = extract_ref_table_from_broken_json(raw_parts)
+            if ref_table:
+                result["ReferencedTableName"] = ref_table
+            # Try to extract other key fields
+            raw = "".join(raw_parts)
+            for key in ("ReferencedType", "Valid_If", "Show_If", "Required_If", "Editable_If"):
+                m = re.search(rf'"{key}"\s*:\s*"([^"]*)"', raw)
+                if m:
+                    result[key] = m.group(1)
+            # Extract EnumValues array
+            m = re.search(r'"EnumValues"\s*:\s*\[([^\]]*)\]', raw)
+            if m:
+                try:
+                    vals = json.loads(f"[{m.group(1)}]")
+                    result["EnumValues"] = vals
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return result if result else None
 
 
 def parse_bool_field(value: str) -> bool:

@@ -86,4 +86,21 @@ def parse_slices(
     if current_slice and current_slice.get("name"):
         slices.append(current_slice)
 
-    return slices
+    # Deduplicate: AppSheet docs repeat slice headers. Keep the version
+    # with the most data (has source_table, filter, etc.)
+    deduped: dict[str, dict[str, Any]] = {}
+    for s in slices:
+        name = s.get("name", "")
+        if not name:
+            continue
+        existing = deduped.get(name)
+        if existing is None:
+            deduped[name] = s
+        else:
+            # Keep whichever has more fields populated
+            if len(s) > len(existing):
+                deduped[name] = s
+            elif len(s) == len(existing) and s.get("source_table") and not existing.get("source_table"):
+                deduped[name] = s
+
+    return list(deduped.values())

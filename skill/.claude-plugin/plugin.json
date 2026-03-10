@@ -1,0 +1,9 @@
+{
+  "name": "appsheet-parser",
+  "description": "Parse AppSheet documentation exports into structured JSON for migration planning",
+  "version": "1.0.0",
+  "author": {
+    "name": "Dave Wertz",
+    "email": "dwertz@blenko.com"
+  }
+}

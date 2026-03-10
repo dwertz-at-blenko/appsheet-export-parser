@@ -32,7 +32,9 @@ def extract_relationships(
 
             # If target is missing or broken, try inference
             if not target or target not in all_tables:
-                inferred = _infer_ref_target(col.get("name", ""), all_tables)
+                inferred = _infer_ref_target(
+                    col.get("name", ""), all_tables, source_table=table,
+                )
                 if inferred:
                     target = inferred
 
@@ -47,46 +49,89 @@ def extract_relationships(
     return rels
 
 
-def _infer_ref_target(column_name: str, all_tables: set[str]) -> str | None:
+def _infer_ref_target(
+    column_name: str,
+    all_tables: set[str],
+    source_table: str = "",
+) -> str | None:
     """Infer the target table from a Ref column's name.
 
     AppSheet naming conventions:
     - Column "Employee" → Table "Employee"
     - Column "Related Work_Cards" → Table "Work_Card"
+    - Column "Shop_ID" → Table "Shops" (strip _ID suffix)
     - Column "Shop" → Table "Shops"
 
-    Tries exact match, then singular/plural variants, then partial match.
+    Tries exact match, suffix stripping, singular/plural, then partial match.
     """
-    # Direct match
-    if column_name in all_tables:
-        return column_name
+    candidates = _generate_candidates(column_name)
 
-    # Strip common prefixes
-    stripped = column_name
-    for prefix in ("Related ", "Ref ", "FK_", "fk_"):
-        if stripped.startswith(prefix):
-            stripped = stripped[len(prefix):]
+    for candidate in candidates:
+        # Direct match
+        if candidate in all_tables and candidate != source_table:
+            return candidate
 
-    if stripped in all_tables:
-        return stripped
+        # Underscore/space normalization
+        for variant in (candidate.replace(" ", "_"), candidate.replace("_", " ")):
+            if variant in all_tables and variant != source_table:
+                return variant
 
-    # Try singular/plural
-    if stripped.endswith("s") and stripped[:-1] in all_tables:
-        return stripped[:-1]
-    if stripped + "s" in all_tables:
-        return stripped + "s"
+        # Singular/plural
+        if candidate.endswith("s") and candidate[:-1] in all_tables:
+            t = candidate[:-1]
+            if t != source_table:
+                return t
+        plus_s = candidate + "s"
+        if plus_s in all_tables and plus_s != source_table:
+            return plus_s
 
-    # Underscore/space normalization
-    normalized = stripped.replace(" ", "_")
-    if normalized in all_tables:
-        return normalized
-    normalized = stripped.replace("_", " ")
-    if normalized in all_tables:
-        return normalized
+    # Case-insensitive match
+    lower_map = {t.lower(): t for t in all_tables}
+    for candidate in candidates:
+        low = candidate.lower()
+        if low in lower_map and lower_map[low] != source_table:
+            return lower_map[low]
+        # Normalized variants
+        for variant in (low.replace(" ", "_"), low.replace("_", " ")):
+            if variant in lower_map and lower_map[variant] != source_table:
+                return lower_map[variant]
 
-    # Partial match (column name contained in table name or vice versa)
-    for table in all_tables:
-        if stripped.lower() in table.lower() or table.lower() in stripped.lower():
-            return table
+    # Partial match — candidate contained in table name or vice versa
+    # Require minimum 3 chars to avoid false matches
+    for candidate in candidates:
+        if len(candidate) < 3:
+            continue
+        for table in all_tables:
+            if table == source_table:
+                continue
+            if candidate.lower() in table.lower() or table.lower() in candidate.lower():
+                return table
 
     return None
+
+
+def _generate_candidates(column_name: str) -> list[str]:
+    """Generate candidate table names from a column name."""
+    candidates = [column_name]
+
+    # Strip common prefixes
+    for prefix in ("Related ", "Ref ", "FK_", "fk_"):
+        if column_name.startswith(prefix):
+            stripped = column_name[len(prefix):]
+            candidates.append(stripped)
+            column_name = stripped
+            break
+
+    # Strip _ID / _Id / ID suffix (common AppSheet convention)
+    for suffix in ("_ID", "_Id", "_id", " ID", " Id"):
+        if column_name.endswith(suffix):
+            base = column_name[: -len(suffix)]
+            if base:
+                candidates.append(base)
+
+    # Strip "Batch_ID" → try just the prefix part
+    m = re.match(r"^(.+?)_\d*(?:ID|Id)$", column_name)
+    if m:
+        candidates.append(m.group(1))
+
+    return candidates

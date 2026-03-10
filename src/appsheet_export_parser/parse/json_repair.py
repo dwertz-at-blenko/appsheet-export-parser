@@ -37,8 +37,24 @@ def repair_json(broken: str) -> str:
     # Remove form feeds and surrounding whitespace
     text = text.replace("\x0c", "")
 
+    # Fix truncated key-value pairs (missing closing quote + value)
+    # e.g., "ReferencedTableName": " → "ReferencedTableName": ""
+    text = re.sub(r'":\s*"([^"]*?)$', r'": "\1"', text, flags=re.MULTILINE)
+
+    # Fix keys that lost their colon separator
+    text = re.sub(r'"([A-Za-z_]+)"\s+"', r'"\1": "', text)
+
     # Remove trailing commas before closing braces/brackets
     text = re.sub(r",\s*([}\]])", r"\1", text)
+
+    # Try to extract ReferencedTableName even from severely broken JSON
+    # This handles cases where the JSON is too broken to parse but we
+    # can still find the table name
+    if "ReferencedTableName" in text:
+        m = re.search(r'"ReferencedTableName"\s*:\s*"([^"]+)"', text)
+        if m:
+            # If we can find the key value, ensure the JSON structure is valid enough
+            pass  # The regular repair below should handle it
 
     # Balance braces
     open_braces = text.count("{")
@@ -57,3 +73,16 @@ def repair_json(broken: str) -> str:
         text = "[" * (close_brackets - open_brackets) + text
 
     return text
+
+
+def extract_ref_table_from_broken_json(raw_parts: list[str]) -> str | None:
+    """Last-resort extraction of ReferencedTableName from broken JSON.
+
+    When repair_json + json.loads fails, scan the raw text for the
+    ReferencedTableName field value directly.
+    """
+    raw = "".join(raw_parts)
+    m = re.search(r'"?ReferencedTableName"?\s*:?\s*"([^"]+)"', raw)
+    if m:
+        return m.group(1)
+    return None

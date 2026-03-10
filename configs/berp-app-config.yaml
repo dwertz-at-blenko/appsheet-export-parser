@@ -1,0 +1,40 @@
+# BERP v1.7 — Table Classification
+# Used by appsheet-export-parser for table grouping in BERP migrations.
+
+table_classification:
+  core:
+    - Employee
+    - Work_Card
+    - WorkCardGrading
+    - Shops
+    - Colors
+    - Grinding
+    - GrindingWorkLog
+    - Furnace Data
+    - Shelf
+    - Artisan Pieces
+    - Artisans
+    - Batch Requests
+    - Exclusions
+    - PartialFulfillmentLine
+    - ShopifyItems
+    - ShopifyPivot
+    - ShopifyUnfulfilled
+    - ShopifyUnfulfilledLines
+    - Shopify_Data
+    - _Per User Settings
+
+  process:
+    # Automation runtime artifacts — document but don't migrate data
+    - "Process for *"
+    - "* Output"
+    - "* Output 2"
+    - "Script Output"
+    - "Stop Script Output"
+
+  skip:
+    # UI-only tables
+    - Home
+    - Buttons
+
+migration_target: postgres

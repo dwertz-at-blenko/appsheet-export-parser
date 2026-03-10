@@ -49,11 +49,12 @@ def clean_lines(raw_lines: list[str], page_count: int | None = None) -> list[str
 
     cleaned: list[str] = []
     for line in raw_lines:
-        s = line.strip()
-
-        # Skip form feed + date header
-        if s.startswith("\x0c"):
+        # Check for form feed on raw line before stripping
+        # (strip() removes \x0c since it's a whitespace char)
+        if "\x0c" in line:
             continue
+
+        s = line.strip()
 
         # Skip page numbers
         if page_pattern.match(s):
