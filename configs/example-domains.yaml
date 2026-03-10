@@ -1,0 +1,39 @@
+# Domain classification for ERD color-coding
+# Copy this file and customize for your AppSheet app.
+#
+# Each domain groups related tables together with a consistent color scheme.
+# Colors are used in ERD generation for node borders, headers, and fills.
+#
+# Usage:
+#   appsheet-parse parse myapp.pdf -o myapp.json --domains myapp-domains.yaml
+#   appsheet-parse erd myapp.json --domains myapp-domains.yaml --format svg
+
+app_name: "My AppSheet App"
+
+domains:
+  # Example: Core business entities
+  Core:
+    color: "#1565C0"       # Primary color for borders and headers
+    fill: "#E3F2FD"        # Light fill for ERD nodes
+    tables:
+      - MainTable
+      - SecondaryTable
+
+  # Example: People and HR
+  People:
+    color: "#2E7D32"
+    fill: "#E8F5E9"
+    tables:
+      - Employee
+      - Department
+
+  # Example: Configuration tables
+  Config:
+    color: "#888888"
+    fill: "#FAFAFA"
+    tables:
+      - Settings
+      - Lookup
+
+  # Add more domains as needed...
+  # The parser assigns a default gray color to tables not in any domain.

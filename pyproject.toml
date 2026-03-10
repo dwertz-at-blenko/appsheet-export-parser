@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "appsheet-export-parser"
+version = "0.1.0"
+description = "Parse AppSheet documentation exports into structured JSON, ERDs, and migration DDL"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Dave Wertz", email = "dave.w.wertz@gmail.com" },
+]
+keywords = ["appsheet", "migration", "parser", "erd", "ddl"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Database",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "typer>=0.9",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.0",
+]
+
+[project.scripts]
+appsheet-parse = "appsheet_export_parser.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/dwertz-at-blenko/appsheet-export-parser"
+Repository = "https://github.com/dwertz-at-blenko/appsheet-export-parser"
+Issues = "https://github.com/dwertz-at-blenko/appsheet-export-parser/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/appsheet_export_parser"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
