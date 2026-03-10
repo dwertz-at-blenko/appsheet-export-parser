@@ -76,7 +76,7 @@ UI-only tables (e.g., "Home", "Buttons"). These:
 AppSheet Ref columns become foreign keys. Check:
 - `ReferencedTableName` in TypeQualifier for target table
 - `IsAPartOf` flag for ownership/cascade delete
-- Column name conventions: `Employee_ID`, `Related Work_Cards`
+- Column name conventions: `Customer_ID`, `Related Orders`
 
 ### Missing References (PDF Limitation)
 PDF extraction often loses TypeQualifier JSON at page boundaries. When a Ref column has no target:

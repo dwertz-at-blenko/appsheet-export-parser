@@ -2,7 +2,6 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://github.com/dwertz-at-blenko/appsheet-export-parser/actions/workflows/test.yml/badge.svg)](https://github.com/dwertz-at-blenko/appsheet-export-parser/actions/workflows/test.yml)
 
 Parse any AppSheet documentation export (PDF) into structured, machine-readable JSON. Built to help teams migrate away from AppSheet to platforms like Retool, Postgres, Supabase, or whatever comes next.
 
@@ -16,18 +15,16 @@ If you've built something real on AppSheet — 50+ tables, thousands of columns,
 
 It reads that documentation export and extracts everything AppSheet knows about your app — every table, column, relationship, action, formula, enum, and constraint — into clean, structured JSON. From there, you can feed it to an LLM for migration planning, generate DDL for Postgres or MySQL, build ERDs, or write automated migration scripts. The hard part (getting your data model *out* of AppSheet) is solved.
 
-We built this for our own migration — a 55-table ERP with 3,044 columns and 293 actions — and we're open-sourcing it because nobody should have to do this by hand.
-
 ## The Technical Problem
 
-AppSheet's "Generate Documentation" PDF is not designed for machine consumption. It contains every table, column, action, slice, and formula in your app, but the format is inconsistent: JSON blobs break across page boundaries, fields are context-dependent, and there's no stable structure to parse against. A 55-table app produces a 2,718-page PDF with over 3 million characters of raw text.
+AppSheet's "Generate Documentation" PDF is not designed for machine consumption. It contains every table, column, action, slice, and formula in your app, but the format is inconsistent: JSON blobs break across page boundaries, fields are context-dependent, and there's no stable structure to parse against. A large app produces a multi-thousand-page PDF with millions of characters of raw text.
 
 This parser handles all of that — page-break repair, broken JSON reconstruction, multi-line formula extraction, smart relationship inference — and validates its own output against AppSheet's official counts to prove nothing was lost.
 
 ## Demo
 
 ```
-$ appsheet-parse parse myapp-docs.pdf -o myapp.json -v
+$ appsheet-parse pdf myapp-docs.pdf -o myapp.json -v
 
 Extracting text from myapp-docs.pdf...
   3,111,819 characters, 2718 pages
@@ -41,6 +38,10 @@ Parsing actions...
   293 actions
 Parsing slices...
   36 slices
+Parsing views...
+  153 views
+Parsing format rules...
+  33 format rules
 Analyzing relationships...
   99 relationships
 Extracting computed fields...
@@ -54,11 +55,13 @@ Validating against header counts...
   [OK] Slices: 36/36
 
 Parsed successfully!
-  App: BERP V1.7 - Live
+  App: My App v2.0
   Tables: 55 (20 core, 33 process)
   Columns: 3044
   Relationships: 99
   Actions: 293
+  Views: 153
+  Format Rules: 33
   Output: myapp.json
 ```
 
@@ -86,6 +89,8 @@ The parser validates its own output against the official counts in the PDF heade
 - **Relationships** — foreign keys inferred from `Ref` columns, with smart matching (handles naming conventions, plural/singular, underscores)
 - **Actions** — grouped by table, with type (`COMPOSITE`, `SET_VALUES`, etc.), conditions, and full properties
 - **Slices** — filtered table views with row filter expressions and column lists
+- **Views** — parsed from the UX section with type, position, data source, and configuration
+- **Format rules** — conditional formatting with conditions, order, and styling
 - **Computed fields** — columns driven by App Formulas, Initial Values, or Spreadsheet Formulas
 - **Enum fields** — columns with `Enum`/`EnumList` types and their valid values
 - **Table classification** — auto-categorize tables as core (business data) vs process (automation artifacts)
@@ -98,12 +103,15 @@ src/appsheet_export_parser/
 ├── extract/          # Stage 1: PDF → raw text
 │   ├── pdf.py        #   pdftotext wrapper
 │   ├── cleaner.py    #   Strip page breaks, headers, noise
-│   └── header.py     #   Parse official counts from doc header
+│   ├── header.py     #   Parse official counts from doc header
+│   └── url_fetcher.py #  Chrome CDP live page fetch
 ├── parse/            # Stage 2: Text → structured sections
 │   ├── section_finder.py  #   Locate schema/action/slice boundaries
 │   ├── schema_parser.py   #   Parse table → column definitions
 │   ├── action_parser.py   #   Parse action definitions
 │   ├── slice_parser.py    #   Parse slice definitions
+│   ├── view_parser.py     #   Parse view definitions
+│   ├── format_rule_parser.py  # Parse format rules
 │   ├── field_parser.py    #   Key-value field extraction
 │   └── json_repair.py     #   Fix broken JSON in Type Qualifiers
 ├── analyze/          # Stage 3: Cross-table analysis
@@ -116,6 +124,7 @@ src/appsheet_export_parser/
 │   └── json_output.py    #   Versioned JSON export (schema v1.0.0)
 ├── models/           # Pydantic models for all data types
 ├── parser.py         # Top-level orchestrator
+├── sync.py           # Cron-based live sync service
 └── cli.py            # Typer CLI
 ```
 
@@ -142,7 +151,7 @@ pip install appsheet-export-parser
 Or from source:
 
 ```bash
-git clone https://github.com/dwertz-at-blenko/appsheet-export-parser
+git clone https://github.com/YOUR_USERNAME/appsheet-export-parser
 cd appsheet-export-parser
 pip install -e .
 ```
@@ -152,14 +161,17 @@ pip install -e .
 ### CLI
 
 ```bash
-# Basic parse
-appsheet-parse parse myapp-docs.pdf -o myapp.json
+# Parse a PDF
+appsheet-parse pdf myapp-docs.pdf -o myapp.json
 
 # Verbose — see pipeline progress and validation
-appsheet-parse parse myapp-docs.pdf -o myapp.json -v
+appsheet-parse pdf myapp-docs.pdf -o myapp.json -v
+
+# Parse from live URL (requires Chrome with auth cookies)
+appsheet-parse url YOUR_APP_ID -o myapp.json -v
 
 # With custom table classification config
-appsheet-parse parse myapp-docs.pdf -o myapp.json --config configs/myapp.yaml -v
+appsheet-parse pdf myapp-docs.pdf -o myapp.json --config configs/myapp.yaml -v
 ```
 
 ### Python API
@@ -183,15 +195,39 @@ for enum in export["enum_fields"]:
     print(f"{enum['table']}.{enum['column']}: {enum['values']}")
 ```
 
+### Live URL Mode
+
+Parse directly from AppSheet's live documentation page (no PDF download needed):
+
+```python
+from appsheet_export_parser.parser import parse_url
+
+export = parse_url("YOUR_APP_ID", output_path="myapp.json", verbose=True)
+```
+
+Requires Chrome with authenticated cookies in a user-data-dir. See `--chrome-profile` option.
+
+### Cron Sync
+
+Automatically sync app documentation on a schedule:
+
+```bash
+# Configure in ~/.appsheet-parser/sync-config.yaml
+python -m appsheet_export_parser.sync
+
+# Dry run (parse but don't write)
+python -m appsheet_export_parser.sync --dry-run
+```
+
 ## Output Format
 
-Schema version `1.0.0`. Every field shown below is real, from an actual parse:
+Schema version `1.0.0`. Example structure:
 
 ```json
 {
   "schema_version": "1.0.0",
   "metadata": {
-    "app_name": "BERP V1.7 - Live",
+    "app_name": "My App v2.0",
     "version": "5.001266",
     "generated": "2026-03-10",
     "parser_version": "1.0.0",
@@ -216,7 +252,7 @@ Schema version `1.0.0`. Every field shown below is real, from an actual parse:
       "format_rules": 33
     }
   },
-  "core_table_names": ["Employee", "Work_Card", "Shops", "..."],
+  "core_table_names": ["Employee", "Orders", "Products", "..."],
   "process_table_names": ["Process for Checkin", "Checkin Output", "..."],
   "schemas": {
     "Employee": [
@@ -229,7 +265,7 @@ Schema version `1.0.0`. Every field shown below is real, from an actual parse:
         "display_name": "=\"Email\""
       },
       {
-        "name": "Combined Name",
+        "name": "Full Name",
         "type": "Name",
         "is_label": true,
         "initial_value": "=CONCATENATE([Last Name], \", \", [First Name])"
@@ -238,31 +274,33 @@ Schema version `1.0.0`. Every field shown below is real, from an actual parse:
   },
   "relationships": [
     {
-      "from_table": "Grinding",
-      "from_column": "Work_Card_ID",
-      "to_table": "Work_Card",
+      "from_table": "Orders",
+      "from_column": "Customer_ID",
+      "to_table": "Customers",
       "referenced_type": "Text"
     }
   ],
   "actions": [
     {
-      "name": "Copy and Edit",
-      "table": "Work_Card",
+      "name": "Approve Order",
+      "table": "Orders",
       "action_type": "COMPOSITE",
       "modifies_data": true,
-      "condition": "=IF(OR(ANY(SELECT(Employee[Role], ...)) = 'Admin', ...), TRUE, FALSE)"
+      "condition": "=[Status] = \"Pending\""
     }
   ],
   "enum_fields": [
     {
-      "table": "Grinding",
-      "column": "Grinding_Status",
+      "table": "Orders",
+      "column": "Status",
       "type": "Enum",
-      "values": ["1 - Pending Work", "2 - Work in Progress", "3 Partial Work Complete", "4 - Work Complete"]
+      "values": ["Pending", "In Progress", "Complete", "Cancelled"]
     }
   ],
   "computed_fields": [],
-  "slices": []
+  "slices": [],
+  "views": [],
+  "format_rules": []
 }
 ```
 
@@ -307,6 +345,22 @@ domains:
     tables: [Employee, Department]
 ```
 
+### Sync Configuration
+
+Configure automatic syncing in `~/.appsheet-parser/sync-config.yaml`:
+
+```yaml
+apps:
+  myapp:
+    app_id: "YOUR_APP_ID"
+    output: "/path/to/output/myapp-parsed.json"
+    config: "configs/myapp-app-config.yaml"  # optional
+
+chrome_profile: "/tmp/chrome-appsheet"
+log_dir: "/path/to/logs"
+alert_dir: "/path/to/alerts"  # optional — writes JSON alerts on auth failure
+```
+
 ## Claude Code Skill
 
 This repo includes a [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill plugin for interactive parsing:
@@ -328,7 +382,7 @@ The parser works for **any** AppSheet app out of the box. To customize table cla
 ## Development
 
 ```bash
-git clone https://github.com/dwertz-at-blenko/appsheet-export-parser
+git clone https://github.com/YOUR_USERNAME/appsheet-export-parser
 cd appsheet-export-parser
 python -m venv .venv
 source .venv/bin/activate

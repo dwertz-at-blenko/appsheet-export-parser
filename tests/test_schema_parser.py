@@ -54,7 +54,7 @@ class TestParseAllSchemas:
             "Type",
             "Text",
             "",
-            "Schema Name Work_Card_Schema",
+            "Schema Name Order_Schema",
             "",
             "Column 1: ID",
             "Column name",
@@ -68,7 +68,7 @@ class TestParseAllSchemas:
         schemas = parse_all_schemas(lines, sections)
         assert len(schemas) == 2
         assert "Employee" in schemas
-        assert "Work_Card" in schemas
+        assert "Order" in schemas
 
     def test_skips_duplicate_schemas(self):
         lines = [
@@ -166,17 +166,17 @@ class TestParseSingleColumn:
     def test_multiline_description(self):
         """Description spanning multiple lines should be joined."""
         lines = [
-            "Column 1: GrindingID",
+            "Column 1: OrderID",
             "Type",
             "Text",
             "Description",
-            "References the value in the Grinding_ID",
-            "column of the Grinding table",
+            "References the value in the Order_ID",
+            "column of the Orders table",
             "Visible?",
             "Yes",
         ]
-        col = _parse_single_column(lines, "GrindingID")
-        assert col["description"] == "References the value in the Grinding_ID column of the Grinding table"
+        col = _parse_single_column(lines, "OrderID")
+        assert col["description"] == "References the value in the Order_ID column of the Orders table"
 
     def test_description_guard_against_known_field(self):
         """When 'Type' immediately follows 'Description', don't capture it as the description."""
@@ -194,15 +194,15 @@ class TestParseSingleColumn:
         """P1: When Type Qualifier has ReferencedTableName but raw type is Number,
         the column type should be overridden to Ref."""
         lines = [
-            "Column 1: Furnace Number",
+            "Column 1: Department Number",
             "Type",
             "Number",
             "Type Qualifier",
-            '{"ReferencedTableName": "Furnace Data", "IsAPartOf": false}',
+            '{"ReferencedTableName": "Departments", "IsAPartOf": false}',
         ]
-        col = _parse_single_column(lines, "Furnace Number")
+        col = _parse_single_column(lines, "Department Number")
         assert col["type"] == "Ref"
-        assert col["referenced_table"] == "Furnace Data"
+        assert col["referenced_table"] == "Departments"
         assert col.get("_original_type") == "Number"
 
     def test_ref_type_stays_ref(self):

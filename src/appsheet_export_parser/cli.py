@@ -94,7 +94,7 @@ def pdf(
 def url(
     app_id: str = typer.Argument(
         ...,
-        help="AppSheet app ID (e.g., c5c1b987-2ea4-48fe-8e73-3f6e18a77b19)",
+        help="AppSheet app ID (from your app's URL)",
     ),
     output: Path = typer.Option(
         None, "-o", "--output",
@@ -105,7 +105,7 @@ def url(
         help="App config YAML for table classification",
     ),
     chrome_profile: str = typer.Option(
-        "/tmp/chrome-shopify-app", "--chrome-profile",
+        "/tmp/chrome-appsheet", "--chrome-profile",
         help="Chrome user-data-dir with auth cookies",
     ),
     verbose: bool = typer.Option(

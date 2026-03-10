@@ -10,14 +10,14 @@ class TestParseViews:
             "Slices",
             "some slice content",
             "UX",
-            "View name\tLehr Temps",
+            "View name\tSales Chart",
             "View type\tchart",
             "Position\tcenter",
-            "For this data\tLehr Temperature Log",
-            "View name\tFurnace Log",
+            "For this data\tSales Report",
+            "View name\tOrder Log",
             "View type\ttable",
             "Position\tleft",
-            "For this data\tFurnace Temperature Log",
+            "For this data\tOrder History",
             "Format Rules",
             "some rule",
             "Behavior",
@@ -25,10 +25,10 @@ class TestParseViews:
         sections = find_sections(lines)
         views = parse_views(lines, sections)
         assert len(views) == 2
-        assert views[0]["name"] == "Lehr Temps"
+        assert views[0]["name"] == "Sales Chart"
         assert views[0]["type"] == "chart"
-        assert views[0]["table"] == "Lehr Temperature Log"
-        assert views[1]["name"] == "Furnace Log"
+        assert views[0]["table"] == "Sales Report"
+        assert views[1]["name"] == "Order Log"
 
     def test_parses_line_separated_views(self):
         lines = [

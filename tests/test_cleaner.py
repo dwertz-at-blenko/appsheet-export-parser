@@ -27,7 +27,7 @@ class TestCleanLines:
         """Form feeds are stripped from lines, not whole lines dropped.
 
         pdftotext sometimes appends \\x0c to content lines (e.g.,
-        "Column 7: Furnace Temperature\\x0c"), so we strip the character
+        "Column 7: Status\\x0c"), so we strip the character
         but preserve the content.
         """
         lines = [

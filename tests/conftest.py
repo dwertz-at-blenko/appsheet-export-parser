@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
-BERP_DIR = FIXTURES_DIR / "berp"
-BERP_PDF = BERP_DIR / "BERP 1.7 Live Documentation 3-8-26.pdf"
+SAMPLE_DIR = FIXTURES_DIR / "sample"
+SAMPLE_PDF = SAMPLE_DIR / "sample-app-documentation.pdf"
 
 
 @pytest.fixture
@@ -17,5 +17,5 @@ def fixtures_dir() -> Path:
 
 
 @pytest.fixture
-def berp_pdf() -> Path:
-    return BERP_PDF
+def sample_pdf() -> Path:
+    return SAMPLE_PDF

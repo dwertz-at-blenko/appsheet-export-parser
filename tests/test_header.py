@@ -67,14 +67,14 @@ class TestExtractAppMetadata:
     def test_extracts_app_name_and_version(self):
         text = (
             "Short Name\n\n"
-            "BERP V1.7 - Live\n\n"
+            "My App v2.0\n\n"
             "Version\n\n"
             "5.001266\n\n"
             "Stable Version\n\n"
             "5.001045\n"
         )
         meta = extract_app_metadata(text)
-        assert meta["app_name"] == "BERP V1.7 - Live"
+        assert meta["app_name"] == "My App v2.0"
         assert meta["version"] == "5.001266"
         assert meta["stable_version"] == "5.001045"
 

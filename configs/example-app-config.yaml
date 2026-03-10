@@ -1,38 +1,28 @@
-# App-specific configuration for parsing and migration
+# Example App — Table Classification
 # Copy this file and customize for your AppSheet app.
-#
-# Table classification controls how tables are handled during migration:
-#   - core: Real data tables — migrate schema + data to target database
-#   - process: Automation runtime tables — document but don't migrate data
-#   - skip: UI-only tables (Home, Buttons) — exclude from migration entirely
-#
-# Tables not listed are treated as 'core' by default.
+# Usage: appsheet-parse pdf myapp-docs.pdf --config configs/myapp-app-config.yaml
 
 table_classification:
   core:
-    # List your main business data tables here
-    - MainTable
     - Employee
     - Orders
+    - Products
+    - Customers
+    - Inventory
+    - Departments
 
   process:
-    # AppSheet process/automation tables (usually named "Process for..." or "...Output")
-    # These contain runtime state, not business data
-    - "Process for *"       # Wildcard: matches any table starting with "Process for"
-    - "* Output"            # Wildcard: matches any table ending with "Output"
-    - "* Process Table"     # Wildcard: matches any table ending with "Process Table"
+    # Automation runtime artifacts — document but don't migrate data
+    - "Process for *"
+    - "* Output"
+    - "* Output 2"
+    - "Script Output"
+    - "Stop Script Output"
 
   skip:
-    # UI-only tables that exist purely for AppSheet navigation
+    # UI-only tables
     - Home
     - Buttons
     - Dashboard
 
-# Target database for DDL generation (postgres, mysql, supabase)
 migration_target: postgres
-
-# Optional: Custom type overrides
-# Use this when your app has columns that need special type mapping
-# type_overrides:
-#   MyTable.special_column: JSONB
-#   Employee.badge_number: VARCHAR(20)

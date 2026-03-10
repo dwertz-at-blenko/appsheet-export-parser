@@ -51,7 +51,7 @@ def clean_lines(raw_lines: list[str], page_count: int | None = None) -> list[str
     for line in raw_lines:
         # Strip form feed characters from the line instead of dropping it.
         # pdftotext sometimes appends \x0c to the last content line on a page,
-        # which would lose data like "Column 7: Furnace Temperature\x0c".
+        # which would lose data like "Column 7: Status\x0c".
         if "\x0c" in line:
             line = line.replace("\x0c", "")
             # If the line is now blank (was form-feed only), skip it

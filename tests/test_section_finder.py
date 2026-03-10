@@ -13,7 +13,7 @@ class TestFindSections:
             "Type",
             "Text",
             "",
-            "Schema Name Work_Card_Schema",
+            "Schema Name Order_Schema",
             "Column 1: ID",
             "Type",
             "Number",
@@ -23,7 +23,7 @@ class TestFindSections:
         sections = find_sections(lines)
         assert len(sections.schema_blocks) == 2
         assert sections.schema_blocks[0] == (2, "Employee_Schema")
-        assert sections.schema_blocks[1] == (7, "Work_Card_Schema")
+        assert sections.schema_blocks[1] == (7, "Order_Schema")
 
     def test_finds_major_sections(self):
         lines = [
@@ -114,7 +114,7 @@ class TestFindSections:
         assert sections.slices.start_line == 3
 
     def test_alternate_markers_actions_and_views(self):
-        """Furnace App uses 'Actions' instead of 'Behavior', 'Views' instead of 'UX'."""
+        """Some apps use 'Actions' instead of 'Behavior', 'Views' instead of 'UX'."""
         lines = [
             "Schema Name Test_Schema",
             "content",

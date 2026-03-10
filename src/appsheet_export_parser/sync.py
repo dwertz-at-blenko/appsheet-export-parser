@@ -22,8 +22,7 @@ import yaml
 
 
 DEFAULT_CONFIG_PATH = Path.home() / ".appsheet-parser" / "sync-config.yaml"
-DEFAULT_LOG_DIR = Path("/data/logs/appsheet-parser")
-CAPTAIN_INBOX = Path("/data/projects/.captain-inbox")
+DEFAULT_LOG_DIR = Path.home() / ".appsheet-parser" / "logs"
 
 
 def load_sync_config(config_path: Path) -> dict[str, Any]:
@@ -52,6 +51,7 @@ def sync_app(
     app_config_path: str | None,
     dry_run: bool,
     logger: logging.Logger,
+    alert_dir: Path | None = None,
 ) -> bool:
     """Sync a single app. Returns True if output was updated."""
     from .parser import parse_url
@@ -74,7 +74,7 @@ def sync_app(
 
         # Check for auth failure
         if "auth" in error_msg.lower() or "cookie" in error_msg.lower() or "too short" in error_msg.lower():
-            _alert_auth_expired(app_name, error_msg, logger)
+            _alert_auth_expired(app_name, error_msg, logger, alert_dir)
 
         return False
 
@@ -106,11 +106,15 @@ def _alert_auth_expired(
     app_name: str,
     error_msg: str,
     logger: logging.Logger,
+    alert_dir: Path | None = None,
 ) -> None:
-    """Write auth expiry alert to captain inbox."""
-    CAPTAIN_INBOX.mkdir(parents=True, exist_ok=True)
+    """Write auth expiry alert to alert directory (if configured)."""
+    if alert_dir is None:
+        logger.warning(f"  Auth may have expired for {app_name}: {error_msg}")
+        return
+    alert_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    alert_path = CAPTAIN_INBOX / f"appsheet-auth-expired-{ts}.json"
+    alert_path = alert_dir / f"appsheet-auth-expired-{ts}.json"
     alert = {
         "type": "alert",
         "from": "appsheet-sync",
@@ -118,11 +122,10 @@ def _alert_auth_expired(
         "severity": "warning",
         "summary": f"AppSheet auth expired for {app_name}",
         "details": error_msg,
-        "action_required": "Re-authenticate via noVNC: navigate to appsheet.com and sign in with Google.",
+        "action_required": "Re-authenticate: navigate to appsheet.com and sign in with Google.",
     }
     alert_path.write_text(json.dumps(alert, indent=2))
-    # Signal unread
-    (CAPTAIN_INBOX / "UNREAD").touch()
+    (alert_dir / "UNREAD").touch()
     logger.warning(f"  Auth alert written to {alert_path}")
 
 
@@ -146,7 +149,9 @@ def main() -> None:
     # Load config
     config = load_sync_config(args.config)
     apps = config.get("apps", {})
-    chrome_profile = config.get("chrome_profile", "/tmp/chrome-shopify-app")
+    chrome_profile = config.get("chrome_profile", "/tmp/chrome-appsheet")
+    alert_dir_str = config.get("alert_dir")
+    alert_dir = Path(alert_dir_str) if alert_dir_str else None
     log_dir = Path(config.get("log_dir", str(DEFAULT_LOG_DIR)))
 
     # Setup logging
@@ -186,7 +191,7 @@ def main() -> None:
             continue
 
         try:
-            if sync_app(app_name, app_id, output, chrome_profile, app_config, args.dry_run, logger):
+            if sync_app(app_name, app_id, output, chrome_profile, app_config, args.dry_run, logger, alert_dir):
                 updated += 1
         except Exception as e:
             logger.error(f"  Unexpected error syncing {app_name}: {e}")

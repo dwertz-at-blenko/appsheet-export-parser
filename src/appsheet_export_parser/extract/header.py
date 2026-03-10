@@ -141,7 +141,7 @@ def extract_app_metadata(text: str) -> dict[str, str]:
     Handles the multi-line key/value format from PDF extraction:
         Short Name
         (blank)
-        BERP V1.7 - Live
+        My App v2.0
     """
     metadata: dict[str, str] = {}
     lines = text.split("\n")[:200]

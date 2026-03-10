@@ -15,7 +15,7 @@ class TestParseFormatRules:
             "Rule name",
             "Older than 1 hour",
             "For this data",
-            "Furnace Temperature Log",
+            "Temperature_Log",
             "If this condition is true",
             "=AND(1=1)",
             "Rule order",
@@ -26,7 +26,7 @@ class TestParseFormatRules:
             "Rule name",
             "Bold Row",
             "For this data",
-            "Pull_Totals",
+            "Sales_Totals",
             "Rule order",
             "2",
             "Behavior",
@@ -35,12 +35,12 @@ class TestParseFormatRules:
         rules = parse_format_rules(lines, sections)
         assert len(rules) == 2
         assert rules[0]["name"] == "Older than 1 hour"
-        assert rules[0]["table"] == "Furnace Temperature Log"
+        assert rules[0]["table"] == "Temperature_Log"
         assert rules[0]["condition"] == "=AND(1=1)"
         assert rules[0]["order"] == 1
         assert rules[0]["disabled"] is True
         assert rules[1]["name"] == "Bold Row"
-        assert rules[1]["table"] == "Pull_Totals"
+        assert rules[1]["table"] == "Sales_Totals"
 
     def test_deduplicates_inline_and_bare_markers(self):
         """Each rule appears twice: inline + bare. Should deduplicate."""

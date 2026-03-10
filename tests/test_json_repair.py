@@ -94,8 +94,8 @@ class TestExtractRefTableFromBrokenJson:
         assert extract_ref_table_from_broken_json(parts) == "Employee"
 
     def test_extracts_from_broken_json(self):
-        parts = ['"ReferencedTableName": "Work_Card"', "some garbage"]
-        assert extract_ref_table_from_broken_json(parts) == "Work_Card"
+        parts = ['"ReferencedTableName": "Orders"', "some garbage"]
+        assert extract_ref_table_from_broken_json(parts) == "Orders"
 
     def test_returns_none_when_not_found(self):
         parts = ['{"SomeOtherKey": "value"}']

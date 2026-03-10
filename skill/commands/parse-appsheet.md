@@ -123,6 +123,6 @@ The parser generates:
 ## Examples
 
 ```
-/parse-appsheet ~/Downloads/BERP-docs.pdf
+/parse-appsheet ~/Downloads/myapp-docs.pdf
 /parse-appsheet /tmp/myapp-documentation.pdf
 ```

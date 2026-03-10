@@ -58,9 +58,9 @@ def _infer_ref_target(
 
     AppSheet naming conventions:
     - Column "Employee" → Table "Employee"
-    - Column "Related Work_Cards" → Table "Work_Card"
-    - Column "Shop_ID" → Table "Shops" (strip _ID suffix)
-    - Column "Shop" → Table "Shops"
+    - Column "Related Orders" → Table "Order"
+    - Column "Customer_ID" → Table "Customers" (strip _ID suffix)
+    - Column "Customer" → Table "Customers"
 
     Tries exact match, suffix stripping, singular/plural, then partial match.
     """

@@ -1,8 +1,7 @@
 """Parse table schemas from AppSheet documentation text.
 
-Refactored from parse_berp_v2.py — removes all hardcoded line numbers
-and BERP-specific patterns. Uses section_finder for boundaries and
-field_parser for key-value extraction.
+Uses section_finder for boundaries and field_parser for key-value
+extraction. Handles page-break artifacts and split column markers.
 """
 
 from __future__ import annotations
@@ -251,7 +250,7 @@ def _parse_single_column(col_lines: list[str], col_name: str) -> dict[str, Any]:
 
                 # P1: If Type Qualifier has ReferencedTableName, override type to "Ref"
                 # This catches columns where the raw PDF type says "Number" but
-                # the column actually stores a foreign key reference (e.g. furnace_id)
+                # the column actually stores a foreign key reference (e.g. department_id)
                 if col.get("referenced_table") and col.get("type") != "Ref":
                     col["_original_type"] = col["type"]
                     col["type"] = "Ref"

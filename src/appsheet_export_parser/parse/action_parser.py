@@ -1,7 +1,7 @@
 """Parse actions from the Behavior section of AppSheet documentation.
 
-Refactored from parse_berp_v2.py — uses section_finder boundaries
-instead of hardcoded `i > 270000`.
+Uses section_finder boundaries to locate the Behavior/Actions section
+and extract all action definitions.
 """
 
 from __future__ import annotations

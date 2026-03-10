@@ -19,7 +19,7 @@ from pathlib import Path
 
 def fetch_appdoc_text(
     url: str,
-    chrome_profile: str = "/tmp/chrome-shopify-app",
+    chrome_profile: str = "/tmp/chrome-appsheet",
     timeout: int = 30,
 ) -> str:
     """Fetch the innerText of an AppSheet documentation page via CDP.

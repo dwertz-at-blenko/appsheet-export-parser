@@ -16,13 +16,13 @@ The base repo is a **generic** AppSheet documentation parser. It works for any A
 ### 1. Fork the Repo
 
 ```bash
-# On GitHub: click "Fork" on dwertz-at-blenko/appsheet-export-parser
+# On GitHub: click "Fork" on the upstream repo
 # Then clone your fork:
 git clone https://github.com/YOUR-ORG/appsheet-export-parser
 cd appsheet-export-parser
 
 # Add upstream remote for pulling updates
-git remote add upstream https://github.com/dwertz-at-blenko/appsheet-export-parser
+git remote add upstream https://github.com/UPSTREAM/appsheet-export-parser
 ```
 
 ### 2. Create Your Config Files
@@ -95,7 +95,7 @@ git merge upstream/main
 | `src/appsheet_export_parser/` (library code) | **Never** — upstream only |
 | `configs/myapp-*.yaml` (your configs) | **Yes** — your customization |
 | `skill/` (Claude Code skill) | **Yes** — add app-specific knowledge |
-| `tests/fixtures/myapp/` (your test data) | **Yes** — add alongside BERP fixtures |
+| `tests/fixtures/myapp/` (your test data) | **Yes** — add your PDF fixtures |
 | Everything else | **No** — upstream maintains |
 
 ## Design Principle

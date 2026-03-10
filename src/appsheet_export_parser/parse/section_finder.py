@@ -48,7 +48,7 @@ class DocumentSections:
 
 # Major section markers — these are standalone lines in the AppSheet doc.
 # Primary markers come first; alternates map to the same section.
-# The Furnace App uses "Actions" instead of "Behavior" and "Views" instead of "UX".
+# Some apps use "Actions" instead of "Behavior" and "Views" instead of "UX".
 _SECTION_MARKERS = {
     "Slices": "slices",
     "UX": "ux",

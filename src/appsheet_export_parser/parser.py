@@ -79,7 +79,7 @@ def parse_url(
     app_id: str,
     output_path: str | Path | None = None,
     app_config_path: str | Path | None = None,
-    chrome_profile: str = "/tmp/chrome-shopify-app",
+    chrome_profile: str = "/tmp/chrome-appsheet",
     verbose: bool = False,
 ) -> dict[str, Any]:
     """Parse an AppSheet app directly from its live documentation URL.
@@ -88,7 +88,7 @@ def parse_url(
     pipeline as parse_pdf but skips PDF extraction.
 
     Args:
-        app_id: AppSheet app ID (e.g., "c5c1b987-2ea4-48fe-8e73-3f6e18a77b19").
+        app_id: AppSheet app ID (from your app's URL).
         output_path: Optional path to write JSON output.
         app_config_path: Optional path to app config YAML for table classification.
         chrome_profile: Path to Chrome user-data-dir with auth cookies.

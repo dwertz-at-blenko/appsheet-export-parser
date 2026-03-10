@@ -1,7 +1,7 @@
 """Parse slices from AppSheet documentation text.
 
-Refactored from parse_berp_v2.py — uses section_finder boundaries
-instead of hardcoded `i > 200000`.
+Uses section_finder boundaries to locate the Slices section
+and extract all slice definitions.
 """
 
 from __future__ import annotations
