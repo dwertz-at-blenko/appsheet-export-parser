@@ -4,13 +4,25 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/dwertz-at-blenko/appsheet-export-parser/actions/workflows/test.yml/badge.svg)](https://github.com/dwertz-at-blenko/appsheet-export-parser/actions/workflows/test.yml)
 
-Parse any AppSheet documentation export (PDF) into structured, machine-readable JSON.
+Parse any AppSheet documentation export (PDF) into structured, machine-readable JSON. Built to help teams migrate away from AppSheet to platforms like Retool, Postgres, Supabase, or whatever comes next.
 
-## The Problem
+## Why This Exists
 
-AppSheet's "Generate Documentation" feature produces a PDF — sometimes thousands of pages — containing every table, column, action, slice, and formula in your app. It's meant for humans to read, but it's nearly unusable for migration planning, auditing, or feeding into LLMs.
+AppSheet is a Google product that feels abandoned. The dev team shows no sign of life. Feature requests sit for years. The community forum is full of unanswered questions. Critical bugs go unacknowledged. Meanwhile, Google keeps shipping new AI products and AppSheet sits there, frozen in time, running business-critical operations for companies that trusted the platform.
 
-This parser reads that PDF and extracts **everything** into clean JSON: schemas with full column metadata, foreign key relationships, actions, slices, computed fields, enums, and validation against AppSheet's own counts.
+If you've built something real on AppSheet — 50+ tables, thousands of columns, hundreds of actions, complex business logic encoded in formulas — you're stuck. There's no export button. No migration tool. No API that gives you your own schema. The only thing AppSheet offers is "Generate Documentation," which dumps a PDF that can run thousands of pages. Good luck reading that.
+
+**This parser exists because migration shouldn't require manually transcribing a 2,700-page PDF.**
+
+It reads that documentation export and extracts everything AppSheet knows about your app — every table, column, relationship, action, formula, enum, and constraint — into clean, structured JSON. From there, you can feed it to an LLM for migration planning, generate DDL for Postgres or MySQL, build ERDs, or write automated migration scripts. The hard part (getting your data model *out* of AppSheet) is solved.
+
+We built this for our own migration — a 55-table ERP with 3,044 columns and 293 actions — and we're open-sourcing it because nobody should have to do this by hand.
+
+## The Technical Problem
+
+AppSheet's "Generate Documentation" PDF is not designed for machine consumption. It contains every table, column, action, slice, and formula in your app, but the format is inconsistent: JSON blobs break across page boundaries, fields are context-dependent, and there's no stable structure to parse against. A 55-table app produces a 2,718-page PDF with over 3 million characters of raw text.
+
+This parser handles all of that — page-break repair, broken JSON reconstruction, multi-line formula extraction, smart relationship inference — and validates its own output against AppSheet's official counts to prove nothing was lost.
 
 ## Demo
 
