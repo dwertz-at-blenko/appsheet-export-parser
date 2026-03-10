@@ -131,8 +131,26 @@ async def _fetch_async(url: str, chrome_profile: str, timeout: int) -> str:
 
 
 def _get_debugger_url() -> str | None:
-    """Get the WebSocket debugger URL from Chrome DevTools on port 9222."""
+    """Get a tab-level WebSocket debugger URL from Chrome DevTools on port 9222.
+
+    Uses /json/list to get a page target (not /json/version which returns
+    the browser-level socket that doesn't support Page.* commands).
+    """
     import urllib.request
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:9222/json/list", timeout=2) as resp:
+            tabs = json.loads(resp.read())
+            # Find a page target (not background/service worker)
+            for tab in tabs:
+                if tab.get("type") == "page" and tab.get("webSocketDebuggerUrl"):
+                    return tab["webSocketDebuggerUrl"]
+            # Fallback: first tab with a debugger URL
+            for tab in tabs:
+                if tab.get("webSocketDebuggerUrl"):
+                    return tab["webSocketDebuggerUrl"]
+    except Exception:
+        pass
+    # Final fallback: browser-level socket
     try:
         with urllib.request.urlopen("http://127.0.0.1:9222/json/version", timeout=2) as resp:
             data = json.loads(resp.read())
