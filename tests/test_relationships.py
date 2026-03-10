@@ -99,6 +99,20 @@ class TestInferRefTarget:
         tables = {"Employee", "Work_Card"}
         assert _infer_ref_target("xyz", tables) is None
 
+    def test_disambiguates_multiple_partial_matches(self):
+        """P2: When 'Batch' matches both 'Batch_Recipes' and 'Batch_Requests',
+        should pick shortest (most specific) or prefix match."""
+        tables = {"Batch_Recipes", "Batch_Requests", "Employee"}
+        result = _infer_ref_target("Batch ID", tables)
+        # Should return something, not None
+        assert result is not None
+        assert result in ("Batch_Recipes", "Batch_Requests")
+
+    def test_case_insensitive_with_normalization(self):
+        tables = {"batch_requests", "batch_recipes"}
+        result = _infer_ref_target("Batch ID", tables)
+        assert result is not None
+
     def test_avoids_self_reference(self):
         tables = {"Employee", "Work_Card"}
         result = _infer_ref_target("Employee", tables, source_table="Employee")

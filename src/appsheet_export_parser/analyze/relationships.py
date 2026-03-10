@@ -98,14 +98,33 @@ def _infer_ref_target(
 
     # Partial match — candidate contained in table name or vice versa
     # Require minimum 3 chars to avoid false matches
+    # When multiple tables match, prefer exact prefix match over substring
     for candidate in candidates:
         if len(candidate) < 3:
             continue
-        for table in all_tables:
+        matches = []
+        for table in sorted(all_tables):
             if table == source_table:
                 continue
             if candidate.lower() in table.lower() or table.lower() in candidate.lower():
-                return table
+                matches.append(table)
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            # Disambiguate: prefer table whose name starts with the candidate
+            prefix_matches = [t for t in matches if t.lower().startswith(candidate.lower())
+                             or t.lower().replace("_", " ").startswith(candidate.lower().replace("_", " "))]
+            if len(prefix_matches) == 1:
+                return prefix_matches[0]
+            # Further disambiguate: prefer table with matching PK convention
+            # e.g., column "Batch ID" → table with PK "batch_id"
+            pk_matches = [t for t in matches
+                         if f"{candidate.lower().replace(' ', '_')}_id" == t.lower().replace(" ", "_").rstrip("s") + "_id"
+                         or f"{candidate.lower().replace(' ', '_')}" == t.lower().replace(" ", "_").rstrip("s")]
+            if pk_matches:
+                return pk_matches[0]
+            # Default: return shortest match (most specific)
+            return min(matches, key=len)
 
     return None
 

@@ -139,3 +139,33 @@ def validate_counts(
         ))
 
     return report
+
+
+def validate_per_table_columns(
+    schemas: dict[str, list[dict[str, Any]]],
+    official_column_counts: dict[str, int] | None = None,
+) -> list[ValidationResult]:
+    """Validate per-table column counts against official counts.
+
+    If official_column_counts is provided (table_name → expected_count),
+    compare each table's parsed column count against the expected count
+    and return warnings for discrepancies.
+    """
+    results: list[ValidationResult] = []
+    if not official_column_counts:
+        return results
+
+    for table_name, expected in official_column_counts.items():
+        actual = len(schemas.get(table_name, []))
+        if actual == 0 and table_name not in schemas:
+            results.append(ValidationResult(
+                f"Table:{table_name}", expected, 0, "warning",
+                "Table not found in parsed output",
+            ))
+        elif actual != expected:
+            results.append(ValidationResult(
+                f"Table:{table_name}", expected, actual, "warning",
+                f"Parsed {actual}/{expected} columns — {expected - actual} missing",
+            ))
+
+    return results

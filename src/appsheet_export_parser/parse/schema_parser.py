@@ -216,6 +216,14 @@ def _parse_single_column(col_lines: list[str], col_name: str) -> dict[str, Any]:
                 for key in ("MaxValue", "MinValue", "MaxLength", "MinLength"):
                     if tq.get(key) is not None:
                         col[key.lower()] = tq[key]
+
+                # P1: If Type Qualifier has ReferencedTableName, override type to "Ref"
+                # This catches columns where the raw PDF type says "Number" but
+                # the column actually stores a foreign key reference (e.g. furnace_id)
+                if col.get("referenced_table") and col.get("type") != "Ref":
+                    col["_original_type"] = col["type"]
+                    col["type"] = "Ref"
+
             i = j
 
         # Condition (inline format)

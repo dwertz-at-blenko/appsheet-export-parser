@@ -190,6 +190,47 @@ class TestParseSingleColumn:
         assert "description" not in col
         assert col["type"] == "Enum"
 
+    def test_ref_override_from_type_qualifier(self):
+        """P1: When Type Qualifier has ReferencedTableName but raw type is Number,
+        the column type should be overridden to Ref."""
+        lines = [
+            "Column 1: Furnace Number",
+            "Type",
+            "Number",
+            "Type Qualifier",
+            '{"ReferencedTableName": "Furnace Data", "IsAPartOf": false}',
+        ]
+        col = _parse_single_column(lines, "Furnace Number")
+        assert col["type"] == "Ref"
+        assert col["referenced_table"] == "Furnace Data"
+        assert col.get("_original_type") == "Number"
+
+    def test_ref_type_stays_ref(self):
+        """P1: When raw type is already Ref, no _original_type is set."""
+        lines = [
+            "Column 1: Employee",
+            "Type",
+            "Ref",
+            "Type Qualifier",
+            '{"ReferencedTableName": "Employee", "IsAPartOf": false}',
+        ]
+        col = _parse_single_column(lines, "Employee")
+        assert col["type"] == "Ref"
+        assert col["referenced_table"] == "Employee"
+        assert "_original_type" not in col
+
+    def test_enum_values_broken_json(self):
+        """P3: Enum extraction from malformed JSON with unquoted key."""
+        lines = [
+            "Column 1: Status",
+            "Type",
+            "Enum",
+            "Type Qualifier",
+            '{EnumValues: ["Active", "Inactive"]}',
+        ]
+        col = _parse_single_column(lines, "Status")
+        assert col.get("enum_values") == ["Active", "Inactive"]
+
 
 class TestParseColumnsFromBlock:
     def test_handles_empty_block(self):

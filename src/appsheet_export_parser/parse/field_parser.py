@@ -145,13 +145,22 @@ def parse_type_qualifier(raw_parts: list[str]) -> dict[str, Any] | None:
             m = re.search(rf'"{key}"\s*:\s*"([^"]*)"', raw)
             if m:
                 result[key] = m.group(1)
+        # Extract EnumValues array — try multiple patterns for malformed JSON
         m = re.search(r'"EnumValues"\s*:\s*\[([^\]]*)\]', raw)
+        if not m:
+            # Fallback: unquoted key or broken brackets
+            m = re.search(r'EnumValues\s*:?\s*\[([^\]]*)\]', raw)
         if m:
             try:
                 vals = json.loads(f"[{m.group(1)}]")
                 result["EnumValues"] = vals
             except (json.JSONDecodeError, TypeError):
-                pass
+                # Last resort: split by comma, strip quotes
+                raw_vals = m.group(1).strip()
+                if raw_vals:
+                    vals = [v.strip().strip('"').strip("'") for v in raw_vals.split(",") if v.strip()]
+                    if vals:
+                        result["EnumValues"] = vals
         return result if result else None
 
 
