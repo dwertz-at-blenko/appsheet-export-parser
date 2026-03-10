@@ -4,39 +4,130 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://github.com/dwertz-at-blenko/appsheet-export-parser/actions/workflows/test.yml/badge.svg)](https://github.com/dwertz-at-blenko/appsheet-export-parser/actions/workflows/test.yml)
 
-Parse any AppSheet documentation export (PDF) into structured JSON — schemas, relationships, actions, enums, computed fields, and more.
+Parse any AppSheet documentation export (PDF) into structured, machine-readable JSON.
 
-Built for **migration planning**: extract everything AppSheet knows about your app into a machine-readable format that LLMs, migration scripts, and ERD generators can consume.
+## The Problem
+
+AppSheet's "Generate Documentation" feature produces a PDF — sometimes thousands of pages — containing every table, column, action, slice, and formula in your app. It's meant for humans to read, but it's nearly unusable for migration planning, auditing, or feeding into LLMs.
+
+This parser reads that PDF and extracts **everything** into clean JSON: schemas with full column metadata, foreign key relationships, actions, slices, computed fields, enums, and validation against AppSheet's own counts.
+
+## Demo
+
+```
+$ appsheet-parse parse myapp-docs.pdf -o myapp.json -v
+
+Extracting text from myapp-docs.pdf...
+  3,111,819 characters, 2718 pages
+  Header: 55 tables, 3044 columns, 293 actions
+  Cleaned to 279,186 lines
+Finding sections...
+  Schema blocks: 55
+Parsing schemas...
+  55 tables, 3044 columns
+Parsing actions...
+  293 actions
+Parsing slices...
+  36 slices
+Analyzing relationships...
+  99 relationships
+Extracting computed fields...
+  797 computed fields
+Extracting enum fields...
+  41 enum fields
+Validating against header counts...
+  [OK] Tables: 55/55
+  [OK] Columns: 3044/3044 -- EXACT MATCH
+  [OK] Actions: 293/293
+  [OK] Slices: 36/36
+
+Parsed successfully!
+  App: BERP V1.7 - Live
+  Tables: 55 (20 core, 33 process)
+  Columns: 3044
+  Relationships: 99
+  Actions: 293
+  Output: myapp.json
+```
+
+The parser validates its own output against the official counts in the PDF header. **EXACT MATCH** means every table, column, action, and slice was captured — nothing lost.
 
 ## What It Extracts
 
-- **Table schemas** — every column with type, key status, formula, description, and constraints
-- **Relationships** — foreign keys via `Ref` columns, with parent/child mapping
-- **Actions** — grouped by table, with action type and configuration
-- **Slices** — filtered table views with row filter expressions
-- **Computed fields** — columns driven by App Formulas or Initial Values
-- **Enum fields** — columns with `EnumList` / `Enum` types and their valid values
-- **Table classification** — auto-categorize tables as core (data) vs process (workflow)
-- **Validation** — cross-check parsed counts against AppSheet's official header counts
+**Per column** (up to 25+ fields each):
 
-## Pipeline
+| Field | Example |
+|-------|---------|
+| `name`, `type` | `"UserID"`, `"Email"` |
+| `is_key`, `is_label` | Key and label column flags |
+| `app_formula` | `=CONCATENATE([Last Name], ", ", [First Name])` |
+| `initial_value` | Default value expressions |
+| `referenced_table` | Foreign key target (from `Ref` columns) |
+| `enum_values` | `["Pending", "In Progress", "Complete"]` |
+| `valid_if`, `show_if`, `editable_if` | Constraint expressions |
+| `description`, `display_name` | Human-readable metadata |
+| `read_only`, `hidden`, `searchable`, `sensitive` | Boolean flags |
+
+**Across the app:**
+
+- **Table schemas** — every column with full metadata
+- **Relationships** — foreign keys inferred from `Ref` columns, with smart matching (handles naming conventions, plural/singular, underscores)
+- **Actions** — grouped by table, with type (`COMPOSITE`, `SET_VALUES`, etc.), conditions, and full properties
+- **Slices** — filtered table views with row filter expressions and column lists
+- **Computed fields** — columns driven by App Formulas, Initial Values, or Spreadsheet Formulas
+- **Enum fields** — columns with `Enum`/`EnumList` types and their valid values
+- **Table classification** — auto-categorize tables as core (business data) vs process (automation artifacts)
+- **Official counts** — AppSheet's own header counts, preserved for validation
+
+## Architecture
 
 ```
-PDF ──→ Extract ──→ Parse ──→ Analyze ──→ JSON
-         │           │          │           │
-     raw text    sections   relationships  structured
-     + header    schemas    computed fields  export
-     counts      actions    enums            with
-                 slices     classification   metadata
+src/appsheet_export_parser/
+├── extract/          # Stage 1: PDF → raw text
+│   ├── pdf.py        #   pdftotext wrapper
+│   ├── cleaner.py    #   Strip page breaks, headers, noise
+│   └── header.py     #   Parse official counts from doc header
+├── parse/            # Stage 2: Text → structured sections
+│   ├── section_finder.py  #   Locate schema/action/slice boundaries
+│   ├── schema_parser.py   #   Parse table → column definitions
+│   ├── action_parser.py   #   Parse action definitions
+│   ├── slice_parser.py    #   Parse slice definitions
+│   ├── field_parser.py    #   Key-value field extraction
+│   └── json_repair.py     #   Fix broken JSON in Type Qualifiers
+├── analyze/          # Stage 3: Cross-table analysis
+│   ├── relationships.py   #   Infer Ref relationships + smart matching
+│   ├── computed_fields.py #   Extract formula-driven columns
+│   ├── enums.py           #   Extract enumerated value columns
+│   ├── classifier.py      #   Core vs process table classification
+│   └── validator.py       #   Validate parsed vs official counts
+├── generate/         # Stage 4: Build canonical output
+│   └── json_output.py    #   Versioned JSON export (schema v1.0.0)
+├── models/           # Pydantic models for all data types
+├── parser.py         # Top-level orchestrator
+└── cli.py            # Typer CLI
 ```
+
+The pipeline runs in four stages: **Extract** (PDF → cleaned text) → **Parse** (text → sections and schemas) → **Analyze** (cross-table relationships, computed fields, enums) → **Generate** (canonical versioned JSON).
 
 ## Installation
+
+**Prerequisite**: `pdftotext` (from poppler-utils):
+
+```bash
+# Ubuntu/Debian
+sudo apt install poppler-utils
+
+# macOS
+brew install poppler
+```
+
+Then install the parser:
 
 ```bash
 pip install appsheet-export-parser
 ```
 
-Or install from source:
+Or from source:
 
 ```bash
 git clone https://github.com/dwertz-at-blenko/appsheet-export-parser
@@ -49,10 +140,10 @@ pip install -e .
 ### CLI
 
 ```bash
-# Parse a PDF, write JSON output
+# Basic parse
 appsheet-parse parse myapp-docs.pdf -o myapp.json
 
-# Verbose mode — see pipeline progress
+# Verbose — see pipeline progress and validation
 appsheet-parse parse myapp-docs.pdf -o myapp.json -v
 
 # With custom table classification config
@@ -64,75 +155,163 @@ appsheet-parse parse myapp-docs.pdf -o myapp.json --config configs/myapp.yaml -v
 ```python
 from appsheet_export_parser.parser import parse_pdf
 
-# Parse and get the result dict
 export = parse_pdf("myapp-docs.pdf", output_path="myapp.json", verbose=True)
 
-# Access parsed data
+# Iterate schemas
 for table, columns in export["schemas"].items():
-    print(f"{table}: {len(columns)} columns")
+    key_cols = [c["name"] for c in columns if c.get("is_key")]
+    print(f"{table}: {len(columns)} columns, keys={key_cols}")
 
+# Walk relationships
 for rel in export["relationships"]:
-    print(f"{rel['child_table']}.{rel['child_column']} → {rel['parent_table']}")
+    print(f"{rel['from_table']}.{rel['from_column']} → {rel['to_table']}")
+
+# Find all enums
+for enum in export["enum_fields"]:
+    print(f"{enum['table']}.{enum['column']}: {enum['values']}")
 ```
 
 ## Output Format
 
-The JSON output follows schema version `1.0.0`:
+Schema version `1.0.0`. Every field shown below is real, from an actual parse:
 
 ```json
 {
   "schema_version": "1.0.0",
   "metadata": {
-    "app_name": "My App",
+    "app_name": "BERP V1.7 - Live",
+    "version": "5.001266",
+    "generated": "2026-03-10",
     "parser_version": "1.0.0",
+    "source_pages": 2718,
     "summary": {
-      "total_tables": 24,
-      "total_columns": 312,
-      "total_relationships": 18,
-      "total_actions": 45
+      "total_tables": 55,
+      "core_tables": 20,
+      "process_tables": 33,
+      "total_columns": 3044,
+      "total_actions": 293,
+      "total_slices": 36,
+      "total_relationships": 99,
+      "total_computed_fields": 797,
+      "total_enum_fields": 41
+    },
+    "official_counts": {
+      "tables": 55,
+      "columns": 3044,
+      "actions": 293,
+      "slices": 36,
+      "views": 153,
+      "format_rules": 33
     }
   },
-  "core_table_names": ["Orders", "Customers", "Products"],
-  "process_table_names": ["Process for Order"],
+  "core_table_names": ["Employee", "Work_Card", "Shops", "..."],
+  "process_table_names": ["Process for Checkin", "Checkin Output", "..."],
   "schemas": {
-    "Orders": [
+    "Employee": [
       {
-        "name": "OrderID",
-        "type": "Text",
-        "key": true,
-        "formula": "",
-        "description": "Unique order identifier"
+        "name": "UserID",
+        "type": "Email",
+        "is_key": true,
+        "searchable": true,
+        "sensitive": true,
+        "display_name": "=\"Email\""
+      },
+      {
+        "name": "Combined Name",
+        "type": "Name",
+        "is_label": true,
+        "initial_value": "=CONCATENATE([Last Name], \", \", [First Name])"
       }
     ]
   },
   "relationships": [
     {
-      "parent_table": "Customers",
-      "child_table": "Orders",
-      "child_column": "CustomerRef",
-      "relationship_type": "one_to_many"
+      "from_table": "Grinding",
+      "from_column": "Work_Card_ID",
+      "to_table": "Work_Card",
+      "referenced_type": "Text"
+    }
+  ],
+  "actions": [
+    {
+      "name": "Copy and Edit",
+      "table": "Work_Card",
+      "action_type": "COMPOSITE",
+      "modifies_data": true,
+      "condition": "=IF(OR(ANY(SELECT(Employee[Role], ...)) = 'Admin', ...), TRUE, FALSE)"
+    }
+  ],
+  "enum_fields": [
+    {
+      "table": "Grinding",
+      "column": "Grinding_Status",
+      "type": "Enum",
+      "values": ["1 - Pending Work", "2 - Work in Progress", "3 Partial Work Complete", "4 - Work Complete"]
     }
   ],
   "computed_fields": [],
-  "enum_fields": [],
-  "actions": [],
   "slices": []
 }
 ```
 
+## Configuration
+
+### Table Classification
+
+Create a YAML config to control how tables are categorized:
+
+```yaml
+table_classification:
+  core:
+    - Employee
+    - Orders
+    - Products
+  process:
+    - "Process for *"     # Wildcard matching
+    - "* Output"
+  skip:
+    - Home
+    - Dashboard
+
+migration_target: postgres
+```
+
+Without a config, the parser auto-classifies using naming heuristics (tables matching `Process for *` or `* Output` patterns are marked as process tables).
+
+### ERD Domain Colors
+
+Group tables into color-coded domains for ERD generation:
+
+```yaml
+app_name: "My App"
+domains:
+  Sales:
+    color: "#1565C0"
+    fill: "#E3F2FD"
+    tables: [Orders, Customers, Products]
+  HR:
+    color: "#2E7D32"
+    fill: "#E8F5E9"
+    tables: [Employee, Department]
+```
+
 ## Claude Code Skill
 
-This repo includes a Claude Code skill plugin for interactive parsing sessions:
+This repo includes a [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill plugin for interactive parsing:
 
-```
+```bash
+# Install the skill plugin
+claude plugin install ./skill
+
+# Then use it in any session
 /parse-appsheet ~/Downloads/myapp-docs.pdf
 ```
 
-The skill runs the parser, validates output, and presents results conversationally.
+The skill handles prerequisites, runs the parser, presents a validation summary, and offers next steps (inspect tables, view relationships, etc.).
 
 ## Customization
 
-The parser works for **any** AppSheet app out of the box. To customize table classification, ERD colors, or skill behavior for your specific app, see the [Fork Guide](FORK-GUIDE.md).
+The parser works for **any** AppSheet app out of the box. To customize table classification, ERD domain colors, or skill behavior for your specific app, see the **[Fork Guide](FORK-GUIDE.md)** — it's designed so forks pull upstream parser improvements without merge conflicts.
 
 ## Development
 
@@ -143,12 +322,17 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Run tests
-pytest
+# Run unit tests (no fixtures needed)
+pytest tests/ --ignore=tests/test_integration.py -v
 
-# Run with coverage
-pytest --cov=appsheet_export_parser
+# Run integration tests (requires a PDF in tests/fixtures/)
+pytest tests/test_integration.py -v
+
+# Type checking
+mypy src/
 ```
+
+Integration tests require an AppSheet documentation PDF in `tests/fixtures/`. They skip gracefully when the fixture is absent (CI runs unit tests only).
 
 ## License
 
