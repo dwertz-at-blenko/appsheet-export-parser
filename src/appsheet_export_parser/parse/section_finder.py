@@ -46,11 +46,15 @@ class DocumentSections:
     """(line_index, schema_name) for each Schema Name marker."""
 
 
-# Major section markers — these are standalone lines in the AppSheet doc
+# Major section markers — these are standalone lines in the AppSheet doc.
+# Primary markers come first; alternates map to the same section.
+# The Furnace App uses "Actions" instead of "Behavior" and "Views" instead of "UX".
 _SECTION_MARKERS = {
     "Slices": "slices",
     "UX": "ux",
+    "Views": "ux",            # Alternate for UX section
     "Behavior": "behavior",
+    "Actions": "behavior",    # Alternate for Behavior section
     "Automation": "automation",
 }
 
@@ -103,7 +107,14 @@ def find_sections(lines: list[str]) -> DocumentSections:
         # Major section markers (only match standalone section headers)
         if s in _SECTION_MARKERS:
             if not lines[i].startswith(" ") and not lines[i].startswith("\t"):
-                marker_positions.append((i, _SECTION_MARKERS[s]))
+                section_name = _SECTION_MARKERS[s]
+                # Skip if we already have a marker for this section
+                # (e.g., "Behavior" already found, skip "Actions")
+                already_found = any(
+                    name == section_name for _, name in marker_positions
+                )
+                if not already_found:
+                    marker_positions.append((i, section_name))
 
         i += 1
 

@@ -23,14 +23,21 @@ class TestCleanLines:
         result = clean_lines(lines)
         assert result == ["Content before", "Content after"]
 
-    def test_removes_form_feed_lines(self):
+    def test_strips_form_feed_from_lines(self):
+        """Form feeds are stripped from lines, not whole lines dropped.
+
+        pdftotext sometimes appends \\x0c to content lines (e.g.,
+        "Column 7: Furnace Temperature\\x0c"), so we strip the character
+        but preserve the content.
+        """
         lines = [
             "Content",
-            "\x0cSome page header",
+            "\x0c",           # form-feed only → dropped (blank after strip)
+            "Data\x0c",       # content with form feed → preserved as "Data"
             "More content",
         ]
         result = clean_lines(lines)
-        assert result == ["Content", "More content"]
+        assert result == ["Content", "Data", "More content"]
 
     def test_removes_application_documentation(self):
         lines = [

@@ -63,15 +63,42 @@ def parse_all_schemas(
 
 
 def _parse_columns_from_block(block_lines: list[str]) -> list[dict[str, Any]]:
-    """Parse columns from a schema block using 'Column N: Name' delimiters."""
+    """Parse columns from a schema block using 'Column N: Name' delimiters.
+
+    Handles three formats for column markers:
+    1. Normal: "Column 5: ColumnName"
+    2. Split across page break: "Column 5:" on one line, "ColumnName" on the next
+    3. Merged with "Column name" field: look for column name after "Column name" label
+    """
     columns: list[dict[str, Any]] = []
 
-    # Find all column markers
+    # Find all column markers — handle split markers too
     col_starts: list[tuple[int, int, str]] = []
-    for i, line in enumerate(block_lines):
-        m = re.match(r"^Column (\d+): (.+)$", line.strip())
+    i = 0
+    while i < len(block_lines):
+        line = block_lines[i].strip()
+
+        # Format 1: Normal inline "Column N: Name"
+        m = re.match(r"^Column (\d+): (.+)$", line)
         if m:
             col_starts.append((i, int(m.group(1)), m.group(2).strip()))
+            i += 1
+            continue
+
+        # Format 2: Split — "Column N:" alone, name on next non-blank line
+        m = re.match(r"^Column (\d+):$", line)
+        if m:
+            col_num = int(m.group(1))
+            # Look ahead for the column name
+            for j in range(i + 1, min(i + 3, len(block_lines))):
+                next_line = block_lines[j].strip()
+                if next_line and next_line not in KNOWN_FIELDS:
+                    col_starts.append((i, col_num, next_line))
+                    break
+            i += 1
+            continue
+
+        i += 1
 
     for idx, (start_i, col_num, col_name) in enumerate(col_starts):
         end_i = col_starts[idx + 1][0] if idx + 1 < len(col_starts) else len(block_lines)
@@ -93,12 +120,17 @@ def _parse_single_column(col_lines: list[str], col_name: str) -> dict[str, Any]:
     while i < len(cleaned):
         field = cleaned[i]
 
-        # Skip header lines
+        # Skip header lines — handle both "Column N: Name" and bare "Column N:"
         if re.match(r"^Column \d+:", field):
             i += 1
             continue
         if field == "Column name":
-            i += 2  # skip field name and value (already have name)
+            # Skip field name and value (already have name from header)
+            # But guard against column name being the last line
+            if i + 1 < len(cleaned) and cleaned[i + 1] not in KNOWN_FIELDS:
+                i += 2
+            else:
+                i += 1
             continue
 
         # Simple key-value fields

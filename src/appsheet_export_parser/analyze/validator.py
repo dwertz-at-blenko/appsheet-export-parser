@@ -68,6 +68,8 @@ def validate_counts(
     schemas: dict[str, list[dict[str, Any]]],
     actions: list[dict[str, Any]],
     slices: list[dict[str, Any]],
+    views: list[dict[str, Any]] | None = None,
+    format_rules: list[dict[str, Any]] | None = None,
 ) -> ValidationReport:
     """Compare parsed extraction counts against official header counts.
 
@@ -76,8 +78,12 @@ def validate_counts(
         schemas: Parsed schemas (table_name → columns).
         actions: Parsed actions list.
         slices: Parsed slices list.
+        views: Parsed views list.
+        format_rules: Parsed format rules list.
     """
     report = ValidationReport()
+    views = views or []
+    format_rules = format_rules or []
 
     if not header.has_data:
         return report  # No header to validate against
@@ -138,6 +144,35 @@ def validate_counts(
             f"Delta: {diff}",
         ))
 
+    # Views
+    if header.views > 0:
+        parsed_views = len(views)
+        if parsed_views == header.views:
+            report.results.append(ValidationResult(
+                "Views", header.views, parsed_views, "match",
+            ))
+        else:
+            diff = header.views - parsed_views
+            status = "warning" if abs(diff) / max(header.views, 1) < 0.1 else "error"
+            report.results.append(ValidationResult(
+                "Views", header.views, parsed_views, status,
+                f"Delta: {diff}",
+            ))
+
+    # Format Rules
+    if header.format_rules > 0:
+        parsed_fr = len(format_rules)
+        if parsed_fr == header.format_rules:
+            report.results.append(ValidationResult(
+                "Format Rules", header.format_rules, parsed_fr, "match",
+            ))
+        else:
+            diff = header.format_rules - parsed_fr
+            report.results.append(ValidationResult(
+                "Format Rules", header.format_rules, parsed_fr, "warning",
+                f"Delta: {diff}",
+            ))
+
     return report
 
 
@@ -169,3 +204,41 @@ def validate_per_table_columns(
             ))
 
     return results
+
+
+def generate_delta_report(
+    schemas: dict[str, list[dict[str, Any]]],
+    official_column_counts: dict[str, int] | None = None,
+) -> str:
+    """Generate a delta report showing which tables are short on columns.
+
+    Returns a human-readable string showing per-table deltas.
+    """
+    if not official_column_counts:
+        return "No official per-table counts available for comparison."
+
+    lines: list[str] = ["Per-table column delta report:"]
+    total_missing = 0
+    total_extra = 0
+
+    for table_name in sorted(official_column_counts.keys()):
+        expected = official_column_counts[table_name]
+        actual = len(schemas.get(table_name, []))
+        diff = expected - actual
+
+        if diff == 0:
+            continue
+
+        if diff > 0:
+            total_missing += diff
+            lines.append(f"  {table_name}: {actual}/{expected} (-{diff} missing)")
+        else:
+            total_extra += abs(diff)
+            lines.append(f"  {table_name}: {actual}/{expected} (+{abs(diff)} extra)")
+
+    if total_missing == 0 and total_extra == 0:
+        lines.append("  All tables match expected column counts.")
+    else:
+        lines.append(f"  Total: {total_missing} missing, {total_extra} extra")
+
+    return "\n".join(lines)

@@ -16,10 +16,12 @@ def build_export(
     relationships: list[dict[str, Any]],
     actions: list[dict[str, Any]],
     slices: list[dict[str, Any]],
-    computed_fields: list[dict[str, Any]],
-    enum_fields: list[dict[str, Any]],
-    core_tables: list[str],
-    process_tables: list[str],
+    views: list[dict[str, Any]] | None = None,
+    format_rules: list[dict[str, Any]] | None = None,
+    computed_fields: list[dict[str, Any]] | None = None,
+    enum_fields: list[dict[str, Any]] | None = None,
+    core_tables: list[str] | None = None,
+    process_tables: list[str] | None = None,
     header_counts: HeaderCounts | None = None,
     app_metadata: dict[str, str] | None = None,
     source_file: str = "",
@@ -31,6 +33,12 @@ def build_export(
     Uses Pydantic models internally for validation, then dumps to dict.
     """
     meta = app_metadata or {}
+    views = views or []
+    format_rules = format_rules or []
+    computed_fields = computed_fields or []
+    enum_fields = enum_fields or []
+    core_tables = core_tables or []
+    process_tables = process_tables or []
 
     summary = AppSummary(
         total_tables=len(schemas),
@@ -61,6 +69,10 @@ def build_export(
         sections.append("actions")
     if slices:
         sections.append("slices")
+    if views:
+        sections.append("views")
+    if format_rules:
+        sections.append("format_rules")
 
     metadata = AppMetadata(
         app_name=meta.get("app_name", ""),
@@ -92,6 +104,8 @@ def build_export(
         "enum_fields": enum_fields,
         "actions": actions,
         "slices": slices,
+        "views": views,
+        "format_rules": format_rules,
     }
 
     return export

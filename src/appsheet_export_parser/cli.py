@@ -1,8 +1,9 @@
 """CLI entry point — thin shell around the library.
 
 Usage:
-    appsheet-parse parse myapp-docs.pdf -o myapp.json
-    appsheet-parse parse myapp-docs.pdf -o myapp.json --config configs/myapp.yaml -v
+    appsheet-parse pdf myapp-docs.pdf -o myapp.json
+    appsheet-parse pdf myapp-docs.pdf -o myapp.json --config configs/myapp.yaml -v
+    appsheet-parse url <app-id> -o myapp.json -v
 """
 
 from __future__ import annotations
@@ -21,11 +22,32 @@ app = typer.Typer(
 console = Console()
 
 
+def _print_summary(export: dict) -> None:
+    """Print a summary of the parsed export."""
+    meta = export.get("metadata", {})
+    summary = meta.get("summary", {})
+    console.print()
+    console.print("[bold green]Parsed successfully![/bold green]")
+    console.print(f"  App: {meta.get('app_name', 'Unknown')}")
+    console.print(f"  Tables: {summary.get('total_tables', 0)} "
+                  f"({summary.get('core_tables', 0)} core, "
+                  f"{summary.get('process_tables', 0)} process)")
+    console.print(f"  Columns: {summary.get('total_columns', 0)}")
+    console.print(f"  Relationships: {summary.get('total_relationships', 0)}")
+    console.print(f"  Actions: {summary.get('total_actions', 0)}")
+    views = export.get("views", [])
+    format_rules = export.get("format_rules", [])
+    if views:
+        console.print(f"  Views: {len(views)}")
+    if format_rules:
+        console.print(f"  Format Rules: {len(format_rules)}")
+
+
 @app.command()
-def parse(
+def pdf(
     source: str = typer.Argument(
         ...,
-        help="Path to AppSheet documentation PDF (or URL in future versions)",
+        help="Path to AppSheet documentation PDF",
     ),
     output: Path = typer.Option(
         None, "-o", "--output",
@@ -40,14 +62,10 @@ def parse(
         help="Print progress details",
     ),
 ) -> None:
-    """Parse an AppSheet documentation export into structured JSON."""
-    from .parser import parse_pdf
+    """Parse an AppSheet documentation PDF into structured JSON."""
+    from .parser import parse_pdf as _parse_pdf
 
     source_path = Path(source)
-
-    if source.startswith("http"):
-        console.print("[red]URL mode not yet supported. Use a PDF file path.[/red]")
-        raise typer.Exit(1)
 
     if not source_path.exists():
         console.print(f"[red]File not found: {source_path}[/red]")
@@ -58,7 +76,7 @@ def parse(
         output = source_path.with_suffix(".json")
 
     try:
-        export = parse_pdf(
+        export = _parse_pdf(
             pdf_path=source_path,
             output_path=output,
             app_config_path=config,
@@ -68,19 +86,81 @@ def parse(
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
 
-    # Summary
-    meta = export.get("metadata", {})
-    summary = meta.get("summary", {})
-    console.print()
-    console.print(f"[bold green]Parsed successfully![/bold green]")
-    console.print(f"  App: {meta.get('app_name', 'Unknown')}")
-    console.print(f"  Tables: {summary.get('total_tables', 0)} "
-                  f"({summary.get('core_tables', 0)} core, "
-                  f"{summary.get('process_tables', 0)} process)")
-    console.print(f"  Columns: {summary.get('total_columns', 0)}")
-    console.print(f"  Relationships: {summary.get('total_relationships', 0)}")
-    console.print(f"  Actions: {summary.get('total_actions', 0)}")
+    _print_summary(export)
     console.print(f"  Output: {output}")
+
+
+@app.command()
+def url(
+    app_id: str = typer.Argument(
+        ...,
+        help="AppSheet app ID (e.g., c5c1b987-2ea4-48fe-8e73-3f6e18a77b19)",
+    ),
+    output: Path = typer.Option(
+        None, "-o", "--output",
+        help="Output JSON file path",
+    ),
+    config: Optional[Path] = typer.Option(
+        None, "--config",
+        help="App config YAML for table classification",
+    ),
+    chrome_profile: str = typer.Option(
+        "/tmp/chrome-shopify-app", "--chrome-profile",
+        help="Chrome user-data-dir with auth cookies",
+    ),
+    verbose: bool = typer.Option(
+        False, "-v", "--verbose",
+        help="Print progress details",
+    ),
+) -> None:
+    """Parse an AppSheet app directly from its live documentation URL."""
+    from .parser import parse_url as _parse_url
+
+    if output is None:
+        output = Path(f"{app_id}.json")
+
+    try:
+        export = _parse_url(
+            app_id=app_id,
+            output_path=output,
+            app_config_path=config,
+            chrome_profile=chrome_profile,
+            verbose=verbose,
+        )
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    _print_summary(export)
+    console.print(f"  Output: {output}")
+
+
+@app.command(name="parse")
+def parse_legacy(
+    source: str = typer.Argument(
+        ...,
+        help="Path to AppSheet documentation PDF (legacy — use 'pdf' subcommand)",
+    ),
+    output: Path = typer.Option(
+        None, "-o", "--output",
+        help="Output JSON file path",
+    ),
+    config: Optional[Path] = typer.Option(
+        None, "--config",
+        help="App config YAML for table classification",
+    ),
+    verbose: bool = typer.Option(
+        False, "-v", "--verbose",
+        help="Print progress details",
+    ),
+) -> None:
+    """[Legacy] Parse an AppSheet documentation export. Use 'pdf' or 'url' instead."""
+    if source.startswith("http"):
+        console.print("[red]Use 'appsheet-parse url <app-id>' for URL mode.[/red]")
+        raise typer.Exit(1)
+
+    # Forward to pdf command
+    pdf(source=source, output=output, config=config, verbose=verbose)
 
 
 if __name__ == "__main__":

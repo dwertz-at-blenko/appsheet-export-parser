@@ -112,3 +112,39 @@ class TestFindSections:
         sections = find_sections(lines)
         assert sections.slices is not None
         assert sections.slices.start_line == 3
+
+    def test_alternate_markers_actions_and_views(self):
+        """Furnace App uses 'Actions' instead of 'Behavior', 'Views' instead of 'UX'."""
+        lines = [
+            "Schema Name Test_Schema",
+            "content",
+            "Slices",
+            "slice content",
+            "Views",
+            "view content",
+            "Actions",
+            "action content",
+        ]
+        sections = find_sections(lines)
+
+        assert sections.ux is not None
+        assert sections.ux.start_line == 4
+
+        assert sections.behavior is not None
+        assert sections.behavior.start_line == 6
+
+    def test_primary_marker_preferred_over_alternate(self):
+        """If both 'UX' and 'Views' appear, keep the first one found."""
+        lines = [
+            "Schema Name Test_Schema",
+            "Slices",
+            "slice content",
+            "UX",
+            "ux content",
+            "Views",  # alternate — should be skipped since UX already found
+            "Behavior",
+            "behavior content",
+        ]
+        sections = find_sections(lines)
+        assert sections.ux is not None
+        assert sections.ux.start_line == 3  # UX, not Views

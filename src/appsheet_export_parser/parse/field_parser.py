@@ -49,6 +49,7 @@ KNOWN_FIELDS = frozenset({
     "Display name",
     "Editable Initial Value? Yes",
     "Editable Initial Value? No",
+    "Only if this condition is true",
 })
 
 # Known field names for action blocks

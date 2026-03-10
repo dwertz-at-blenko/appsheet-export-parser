@@ -255,3 +255,24 @@ class TestParseColumnsFromBlock:
         assert cols[0]["name"] == "A"
         assert cols[1]["name"] == "B"
         assert cols[2]["name"] == "C"
+
+    def test_handles_split_column_marker(self):
+        """Column marker split across page break: 'Column N:' alone, name on next line."""
+        lines = [
+            "Schema Name Test_Schema",
+            "Column 1: Normal",
+            "Type",
+            "Text",
+            "Column 2:",
+            "Split Name",
+            "Type",
+            "Number",
+            "Column 3: Also Normal",
+            "Type",
+            "Ref",
+        ]
+        cols = _parse_columns_from_block(lines)
+        assert len(cols) == 3
+        assert cols[0]["name"] == "Normal"
+        assert cols[1]["name"] == "Split Name"
+        assert cols[2]["name"] == "Also Normal"

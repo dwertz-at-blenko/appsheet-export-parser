@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "appsheet-export-parser"
-version = "0.1.0"
+version = "0.2.0"
 description = "Parse AppSheet documentation exports into structured JSON, ERDs, and migration DDL"
 readme = "README.md"
 license = "MIT"
@@ -33,6 +33,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+url = [
+    "websockets>=12.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
