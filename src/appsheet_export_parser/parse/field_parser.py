@@ -101,41 +101,58 @@ def parse_type_qualifier(raw_parts: list[str]) -> dict[str, Any] | None:
     """Parse a Type Qualifier JSON blob from collected line parts.
 
     The JSON may be broken across PDF page boundaries.
-    Attempts parsing as-is first, then tries basic JSON repair,
-    then falls back to regex extraction of key fields.
+    Tries multiple join strategies (space-join preserves string values,
+    no-space join preserves keywords), then repair, then regex fallback.
 
     Returns parsed dict or None if parsing fails completely.
     """
-    tq_str = "".join(raw_parts)
+    space_joined = " ".join(raw_parts)    # Preserves string value spaces
+    nospace_joined = "".join(raw_parts)   # Preserves keyword integrity
+
+    # Attempt 1: space-join (best for string values with page-break splits)
     try:
-        return json.loads(tq_str)
+        return json.loads(space_joined)
     except (json.JSONDecodeError, TypeError):
-        # Try repair
-        from .json_repair import repair_json, extract_ref_table_from_broken_json
-        repaired = repair_json(tq_str)
-        try:
-            return json.loads(repaired)
-        except (json.JSONDecodeError, TypeError):
-            # Last resort: extract what we can via regex
-            result: dict[str, Any] = {}
-            ref_table = extract_ref_table_from_broken_json(raw_parts)
-            if ref_table:
-                result["ReferencedTableName"] = ref_table
-            # Try to extract other key fields
-            raw = "".join(raw_parts)
-            for key in ("ReferencedType", "Valid_If", "Show_If", "Required_If", "Editable_If"):
-                m = re.search(rf'"{key}"\s*:\s*"([^"]*)"', raw)
-                if m:
-                    result[key] = m.group(1)
-            # Extract EnumValues array
-            m = re.search(r'"EnumValues"\s*:\s*\[([^\]]*)\]', raw)
+        pass
+
+    # Attempt 2: repair space-joined (fixes split keywords while preserving
+    # string value spaces — must come before raw no-space join)
+    from .json_repair import repair_json, extract_ref_table_from_broken_json
+    repaired = repair_json(space_joined)
+    try:
+        return json.loads(repaired)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Attempt 3: no-space join (fallback for structural breaks)
+    try:
+        return json.loads(nospace_joined)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    # Attempt 4: repair no-space version
+    repaired2 = repair_json(nospace_joined)
+    try:
+        return json.loads(repaired2)
+    except (json.JSONDecodeError, TypeError):
+        # Last resort: regex extraction
+        result: dict[str, Any] = {}
+        ref_table = extract_ref_table_from_broken_json(raw_parts)
+        if ref_table:
+            result["ReferencedTableName"] = ref_table
+        raw = "".join(raw_parts)
+        for key in ("ReferencedType", "Valid_If", "Show_If", "Required_If", "Editable_If"):
+            m = re.search(rf'"{key}"\s*:\s*"([^"]*)"', raw)
             if m:
-                try:
-                    vals = json.loads(f"[{m.group(1)}]")
-                    result["EnumValues"] = vals
-                except (json.JSONDecodeError, TypeError):
-                    pass
-            return result if result else None
+                result[key] = m.group(1)
+        m = re.search(r'"EnumValues"\s*:\s*\[([^\]]*)\]', raw)
+        if m:
+            try:
+                vals = json.loads(f"[{m.group(1)}]")
+                result["EnumValues"] = vals
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return result if result else None
 
 
 def parse_bool_field(value: str) -> bool:

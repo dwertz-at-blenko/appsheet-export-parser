@@ -163,6 +163,34 @@ class TestParseSingleColumn:
         assert col["enum_values"] == ["Active", "Inactive", "Pending"]
 
 
+    def test_multiline_description(self):
+        """Description spanning multiple lines should be joined."""
+        lines = [
+            "Column 1: GrindingID",
+            "Type",
+            "Text",
+            "Description",
+            "References the value in the Grinding_ID",
+            "column of the Grinding table",
+            "Visible?",
+            "Yes",
+        ]
+        col = _parse_single_column(lines, "GrindingID")
+        assert col["description"] == "References the value in the Grinding_ID column of the Grinding table"
+
+    def test_description_guard_against_known_field(self):
+        """When 'Type' immediately follows 'Description', don't capture it as the description."""
+        lines = [
+            "Column 1: Status",
+            "Description",
+            "Type",
+            "Enum",
+        ]
+        col = _parse_single_column(lines, "Status")
+        assert "description" not in col
+        assert col["type"] == "Enum"
+
+
 class TestParseColumnsFromBlock:
     def test_handles_empty_block(self):
         cols = _parse_columns_from_block(["Schema Name Test_Schema"])

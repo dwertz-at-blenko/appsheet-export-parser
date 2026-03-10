@@ -109,8 +109,15 @@ def _parse_single_column(col_lines: list[str], col_name: str) -> dict[str, Any]:
             col["visible"] = cleaned[i + 1]
             i += 2
         elif field == "Description" and i + 1 < len(cleaned):
-            col["description"] = cleaned[i + 1]
-            i += 2
+            val_parts: list[str] = []
+            j = i + 1
+            while j < len(cleaned) and cleaned[j] not in KNOWN_FIELDS:
+                val_parts.append(cleaned[j])
+                j += 1
+            desc = " ".join(val_parts).strip()
+            if desc and desc not in KNOWN_FIELDS:
+                col["description"] = desc
+            i = j
         elif field == "Read-Only" and i + 1 < len(cleaned):
             col["read_only"] = cleaned[i + 1] == "Yes"
             i += 2

@@ -61,6 +61,33 @@ class TestRepairJson:
         assert result.count("{") == result.count("}")
 
 
+    def test_repairs_split_true_keyword(self):
+        broken = '{"IsAPartOf": t rue}'
+        result = repair_json(broken)
+        parsed = json.loads(result)
+        assert parsed["IsAPartOf"] is True
+
+    def test_repairs_split_false_keyword(self):
+        broken = '{"IsAPartOf": fal se}'
+        result = repair_json(broken)
+        parsed = json.loads(result)
+        assert parsed["IsAPartOf"] is False
+
+    def test_repairs_split_null_keyword(self):
+        broken = '{"Value": nu ll}'
+        result = repair_json(broken)
+        parsed = json.loads(result)
+        assert parsed["Value"] is None
+
+    def test_split_keyword_does_not_break_string_values(self):
+        """Keywords inside string values should not be mangled."""
+        original = '{"name": "t rue story"}'
+        result = repair_json(original)
+        # The repair only targets keywords after ":", so string values are safe
+        parsed = json.loads(result)
+        assert parsed["name"] == "t rue story"
+
+
 class TestExtractRefTableFromBrokenJson:
     def test_extracts_from_clean_json(self):
         parts = ['{"ReferencedTableName": "Employee", "IsAPartOf": false}']

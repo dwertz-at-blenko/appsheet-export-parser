@@ -37,6 +37,14 @@ def repair_json(broken: str) -> str:
     # Remove form feeds and surrounding whitespace
     text = text.replace("\x0c", "")
 
+    # Fix JSON keywords split by spaces (from space-join of page-broken lines)
+    # Anchored after ":" to avoid matching inside string values
+    for keyword in ('true', 'false', 'null'):
+        for split_pos in range(1, len(keyword)):
+            left = re.escape(keyword[:split_pos])
+            right = re.escape(keyword[split_pos:])
+            text = re.sub(rf':\s*{left}\s+{right}(?=[,\s\}}\]])', f':{keyword}', text)
+
     # Fix truncated key-value pairs (missing closing quote + value)
     # e.g., "ReferencedTableName": " → "ReferencedTableName": ""
     text = re.sub(r'":\s*"([^"]*?)$', r'": "\1"', text, flags=re.MULTILINE)
