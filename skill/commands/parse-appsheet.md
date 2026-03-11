@@ -50,7 +50,6 @@ If no argument is provided, ask the user for the path to their AppSheet document
 - If `$ARGUMENTS` starts with `http`, inform the user that URL mode is not yet supported and ask for a PDF path instead.
 - If `$ARGUMENTS` is a file path, verify it exists.
 - If the path uses `~`, expand it.
-- If the path is on a remote machine (starts with `/home/davew/` or `/Users/dw/`), use the `/fetch` skill to retrieve it first.
 
 ### Step 2: Run the Parser
 
